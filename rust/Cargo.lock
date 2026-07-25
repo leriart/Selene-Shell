@@ -535,6 +535,7 @@ dependencies = [
  "cxx-qt-build",
  "cxx-qt-lib",
  "hyprland",
+ "qt-build-utils",
 ]
 
 [[package]]

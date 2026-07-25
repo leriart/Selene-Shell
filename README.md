@@ -293,7 +293,9 @@ being validated through a minimal proof of concept before full development begin
 - [x] Hyprland IPC connection (`hyprland-rs`, 1 Hz polling -- push-based event
       listener queued behind the async/tokio bridge)
 - [x] Ambxst-style non-invasive installer + `selene` CLI surface
-- [ ] QML panel displaying active workspaces
+- [x] Design tokens (`rust/qml/Tokens.qml` singleton) + mock `Bar.qml` driven by
+      live `Bridge` properties
+- [ ] QML panel rendering the rest of the shell surface (notifications, OSD, launcher)
 - [ ] Lua config loader exposing values to QML
 - [ ] Launcher overlay with fuzzy finder
 - [ ] Dynamic Island with media, metrics and notifications

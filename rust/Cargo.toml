@@ -17,6 +17,7 @@ hyprland = "0.4.0-beta.3"
 
 [build-dependencies]
 cxx-qt-build = "0.9"
+qt-build-utils = "0.9"
 
 [features]
 link_qt_object_files = ["cxx-qt-build/link_qt_object_files"]

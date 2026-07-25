@@ -1,0 +1,145 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+import io.github.selene.shell
+
+Rectangle {
+    id: bar
+
+    property var bridge: null
+
+    height: Tokens.barHeight
+    radius: Tokens.radiusMd
+    color: Tokens.surface
+    border.color: Tokens.border
+    border.width: 1
+
+    Behavior on opacity {
+        NumberAnimation { duration: Tokens.duration; easing.type: Easing.OutCubic }
+    }
+
+    RowLayout {
+        anchors.fill: parent
+        anchors.leftMargin: Tokens.spacingMd
+        anchors.rightMargin: Tokens.spacingMd
+        spacing: Tokens.spacingMd
+
+        Label {
+            text: "selene"
+            color: Tokens.accent
+            font.family: Tokens.fontFamily
+            font.pixelSize: Tokens.fontMd
+            font.bold: true
+            font.letterSpacing: 0.5
+        }
+
+        Item { width: Tokens.spacingSm; Layout.fillHeight: true }
+
+        Repeater {
+            model: Math.max(1, bridge ? bridge.workspace_count : 0)
+
+            delegate: Rectangle {
+                id: chip
+                required property int index
+                Layout.preferredWidth: Tokens.chipSize
+                Layout.preferredHeight: Tokens.chipSize - 6
+                radius: Tokens.radiusSm
+                color: (index + 1) === (bridge ? bridge.active_workspace_id : -1)
+                       ? Tokens.accentMuted
+                       : "transparent"
+                border.color: (index + 1) === (bridge ? bridge.active_workspace_id : -1)
+                              ? Tokens.accent
+                              : Tokens.border
+                border.width: 1
+
+                Behavior on color {
+                    ColorAnimation { duration: Tokens.duration }
+                }
+                Behavior on border.color {
+                    ColorAnimation { duration: Tokens.duration }
+                }
+
+                Label {
+                    anchors.centerIn: parent
+                    text: (index + 1).toString()
+                    color: (index + 1) === (bridge ? bridge.active_workspace_id : -1)
+                           ? Tokens.accent
+                           : Tokens.textMuted
+                    font.family: Tokens.monoFamily
+                    font.pixelSize: Tokens.fontSm
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onEntered: chip.opacity = 0.85
+                    onExited: chip.opacity = 1.0
+                }
+            }
+        }
+
+        Item { Layout.fillWidth: true; Layout.fillHeight: true }
+
+        Rectangle {
+            visible: bridge && bridge.active_window_class
+            radius: Tokens.radiusSm
+            color: Tokens.surfaceAlt
+            border.color: Tokens.border
+            border.width: 1
+            Layout.preferredHeight: Tokens.chipSize - 6
+            Layout.maximumWidth: 220
+            Layout.preferredWidth: Math.min(220, (bridge ? (bridge.active_window_title.length * 7 + 24) : 24))
+
+            Behavior on Layout.preferredWidth {
+                NumberAnimation { duration: Tokens.duration }
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Tokens.spacingSm
+                anchors.rightMargin: Tokens.spacingSm
+                spacing: Tokens.spacingXs
+
+                Rectangle {
+                    width: 6
+                    height: 6
+                    radius: 3
+                    color: Tokens.success
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                Label {
+                    text: bridge ? bridge.active_window_class : ""
+                    color: Tokens.text
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontSm
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.preferredHeight: Tokens.chipSize - 6
+            Layout.preferredWidth: 38
+            radius: Tokens.radiusSm
+            color: bridge && bridge.connected ? Qt.darker(Tokens.accent, 3.5) : Tokens.surfaceAlt
+            border.color: bridge && bridge.connected ? Tokens.success : Tokens.border
+            border.width: 1
+
+            Behavior on border.color {
+                ColorAnimation { duration: Tokens.duration }
+            }
+
+            Label {
+                anchors.centerIn: parent
+                text: bridge && bridge.connected ? "hypr" : "off"
+                color: bridge && bridge.connected ? Tokens.success : Tokens.textDim
+                font.family: Tokens.monoFamily
+                font.pixelSize: Tokens.fontXs
+            }
+        }
+    }
+}

@@ -1,0 +1,43 @@
+pragma Singleton
+
+import QtQuick
+
+QtObject {
+    readonly property int radiusSm: 4
+    readonly property int radiusMd: 8
+    readonly property int radiusLg: 14
+
+    readonly property int spacingXs: 4
+    readonly property int spacingSm: 8
+    readonly property int spacingMd: 12
+    readonly property int spacingLg: 20
+
+    readonly property int durationFast: 120
+    readonly property int duration: 200
+    readonly property int durationSlow: 320
+
+    readonly property color bg: "#0e0f12"
+    readonly property color surface: "#16181c"
+    readonly property color surfaceAlt: "#1f2128"
+    readonly property color border: "#2a2c33"
+    readonly property color borderStrong: "#3a3d46"
+    readonly property color accent: "#a78bfa"
+    readonly property color accentMuted: "#3a2e5e"
+    readonly property color text: "#e6e6ea"
+    readonly property color textMuted: "#8a8d96"
+    readonly property color textDim: "#555"
+    readonly property color success: "#7ee787"
+    readonly property color danger: "#f97583"
+
+    readonly property int barHeight: 40
+    readonly property int barMargin: 12
+    readonly property int chipSize: 28
+
+    readonly property string fontFamily: "Inter, Sans-Serif"
+    readonly property string monoFamily: "JetBrains Mono, monospace"
+    readonly property int fontXs: 10
+    readonly property int fontSm: 12
+    readonly property int fontMd: 14
+    readonly property int fontLg: 18
+    readonly property int fontXl: 22
+}
