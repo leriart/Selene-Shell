@@ -49,7 +49,10 @@ ApplicationWindow {
     Palette {
         id: paletteBackend
 
-        Component.onCompleted: paletteBackend.refresh()
+        Component.onCompleted: {
+            paletteBackend.set_source(paletteBackend.default_source());
+            paletteBackend.refresh();
+        }
     }
 
     Timer {
@@ -57,6 +60,24 @@ ApplicationWindow {
         running: true
         repeat: true
         onTriggered: paletteBackend.refresh()
+    }
+
+    Connections {
+        target: paletteBackend
+        function onAccentChanged() {
+            Tokens.accent = paletteBackend.accent;
+        }
+        function onBackgroundChanged() {
+            Tokens.bg = paletteBackend.background;
+        }
+        function onSurfaceChanged() {
+            Tokens.surface = paletteBackend.surface;
+        }
+        function onTextColorChanged() {
+            // Palette property is `text_color`; QML converts to camelCase
+            // for the signal handler hook above this line.
+            Tokens.text = paletteBackend.text_color;
+        }
     }
 
     Timer {

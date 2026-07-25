@@ -16,18 +16,27 @@ QtObject {
     readonly property int duration: 200
     readonly property int durationSlow: 320
 
-    readonly property color bg: "#0e0f12"
-    readonly property color surface: "#16181c"
-    readonly property color surfaceAlt: "#1f2128"
-    readonly property color border: "#2a2c33"
-    readonly property color borderStrong: "#3a3d46"
-    readonly property color accent: "#a78bfa"
-    readonly property color accentMuted: "#3a2e5e"
-    readonly property color text: "#e6e6ea"
-    readonly property color textMuted: "#8a8d96"
-    readonly property color textDim: "#555"
-    readonly property color success: "#7ee787"
-    readonly property color danger: "#f97583"
+    // Theme colors. These are mutable so the live palette engine can
+    // re-tint them when the wallpaper changes. Defaults match the
+    // Caelestia-feel dark surface palette.
+    property color bg: "#0e0f12"
+    property color surface: "#16181c"
+    property color surfaceAlt: "#1f2128"
+    property color border: "#2a2c33"
+    property color borderStrong: "#3a3d46"
+    property color accent: "#a78bfa"
+    property color accentMuted: "#3a2e5e"
+    property color text: "#e6e6ea"
+    property color textMuted: "#8a8d96"
+    property color textDim: "#555"
+    property color success: "#7ee787"
+    property color danger: "#f97583"
+
+    Behavior on bg { ColorAnimation { duration: 600 } }
+    Behavior on surface { ColorAnimation { duration: 600 } }
+    Behavior on accent { ColorAnimation { duration: 600 } }
+    Behavior on text { ColorAnimation { duration: 600 } }
+    Behavior on textMuted { ColorAnimation { duration: 600 } }
 
     readonly property int barHeight: 40
     readonly property int barMargin: 12
