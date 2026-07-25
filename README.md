@@ -1,6 +1,6 @@
 # Selene-Shell
 
-> A QML shell for Hyprland. Light as moonlight, solid as Rust.
+A QML shell for Hyprland. Light as moonlight, solid as Rust.
 
 Selene is a modern, visually refined shell for [Hyprland](https://hyprland.org) and the
 spiritual successor to [NothingLess](https://github.com/leriart/NothingLess). Its user
@@ -12,24 +12,25 @@ means moon in Portuguese) riding on a foundation of Rust.
 
 ## Lineage
 
-Selene stands on the shoulders of three projects:
+Selene fuses the best parts of three projects into one coherent whole:
 
 - **[Ambxst](https://github.com/Axenide/Ambxst)** -- non-intrusive installer philosophy,
   the `cli` command surface, the dot-Material design language and the "the shell
   never edits your config" promise.
-- **[Caelestia Shell](https://github.com/caelestia-dots/shell)** -- the bar/launcher
-  visual identity, the token-based theming system, fluid overlays and the discipline of
-  a single JSON config the user owns.
+- **[Caelestia Shell](https://github.com/caelestia-dots/shell)** -- the translucid bar
+  and launcher aesthetic, the token-based theming system, fluid overlays and the
+  discipline of a single config the user owns.
 - **[NothingLess](https://github.com/leriart/NothingLess)** -- the axctl compositing
   bridge, the Dynamic Island, the Ndot visual language, the FPS pipeline, the Mirai
   screen-sharing integration, and every lessons-learned shipped during its lifetime.
 
-Selene keeps what worked, ditches what proved fragile, and finishes the migration to a
-type-safe Rust backend that NothingLess only started.
+Visually Selene tips its hat to both -- Caelestia's glassy overlay shell with
+NothingLess's Ndot accent (dot-matrix monospace, monochrome with a single accent
+pop) and tight material curves.
 
 ---
 
-## Philosophy
+## Aesthetic
 
 Two principles steer every design decision:
 
@@ -48,23 +49,24 @@ users writing their own config.
 
 ```
                                QML Layer
-  ┌──────────────────────────────────────────────────────┐
-  │   Panel      Launcher       Notification Center      │
-  │   OSD        Overview       Quick Settings           │
-  └─────────────────────┬────────────────────────────────┘
-                        │
-                        │ QtQuick / QQmlApplicationEngine
-                        │
-  ┌─────────────────────┴────────────────────────────────┐
-  │                      Rust Backend                     │
-  │                                                       │
-  │   ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │
-  │   │  hyprland-rs │  │  mlua (Lua)  │  │ cxx-qt /   │  │
-  │   │  IPC client  │  │  engine      │  │ qmetaobject│  │
-  │   └──────────────┘  └──────────────┘  └────────────┘  │
-  │                                                       │
-  │   Workspace Manager  •  Window Tracker  •  Config   │
-  └───────────────────────────────────────────────────────┘
+   +-----------------------------------------------------+
+   |   Panel      Launcher       Notification Center     |
+   |   OSD        Overview       Quick Settings          |
+   +---------------------+--------------------------------+
+                         |
+                         | QtQuick / QQmlApplicationEngine
+                         |
+   +---------------------+--------------------------------+
+   |                      Rust Backend                     |
+   |                                                       |
+   |   +--------------+  +--------------+  +------------+   |
+   |   |  hyprland-rs |  |  mlua (Lua)  |  | cxx-qt     |   |
+   |   |  IPC client  |  |  engine      |  | generated  |   |
+   |   |  + listener  |  |              |  | QObjects   |   |
+   |   +--------------+  +--------------+  +------------+   |
+   |                                                       |
+   |   Workspace Manager  *  Window Tracker  *  Config   |
+   +-------------------------------------------------------+
 ```
 
 ### Stack
@@ -74,9 +76,75 @@ users writing their own config.
 | UI               | QML / QtQuick 6         | Panels, overlays, animations, input                  |
 | Build glue       | CMake + Corrosion       | Orchestrates Rust (cargo) and C++ (Ninja)            |
 | Bridge           | Rust (cxx-qt)           | Expose backend data to QML as properties and models  |
-| Compositor IPC   | hyprland-rs             | Typed async client over the Hyprland Unix socket     |
+| Compositor IPC   | hyprland-rs             | Push-based event listener + sync queries            |
 | Scripting        | mlua (Lua 5.4)          | User config, keybindings, rules, theming             |
 | Core             | Rust                    | Workspace tracking, event dispatch, resource mgmt    |
+
+---
+
+## Compositor features
+
+Selene is, at its core, a compositor surface for Hyprland. The Rust side consumes
+the IPC stream and exposes live state to QML through cxx-qt `Q_PROPERTY` bindings.
+
+### Live IPC
+
+The Rust core spawns a dedicated event-listener thread that owns a
+`hyprland-rs::EventListener`. On every workspace, monitor, window, fullscreen or
+focus change, the listener queues a `refresh()` call onto the Qt main thread via
+`cxx_qt::CxxQtThread`, which re-reads the relevant state from the Hyprland socket
+and updates the QObject properties in one pass. QML bindings then propagate to
+every visible surface without polling.
+
+Handled events:
+
+- `workspace >> changed / added / deleted / moved / renamed`
+- `activeWindow >> changed`, `activeMonitor >> changed`
+- `window >> titleChanged / opened / closed / moved`
+
+The QML side also keeps a 10 s safety-net `Timer` that calls `refresh()` for the
+case where Hyprland is not running.
+
+Exposed bindings on the `Bridge` QObject (consumed by `Bar.qml`, `Main.qml`, etc.):
+
+| Property              | Type    | Source                                  |
+|-----------------------|---------|-----------------------------------------|
+| `connected`           | `bool`  | whether the IPC socket is reachable     |
+| `hyprland_status`     | `string`| last status / error from the bridge     |
+| `listener_started`    | `bool`  | whether the event thread is running     |
+| `active_workspace_id` | `int`   | `Workspace::get_active().id`             |
+| `active_workspace_name` | `string` | `Workspace::get_active().name`        |
+| `workspace_count`     | `int`   | `Workspaces::get().len()`                |
+| `active_window_class` | `string`| `Client::get_active().class`            |
+| `active_window_title` | `string`| `Client::get_active().title`            |
+
+QInvokables: `increment()`, `greet(name)`, `refresh()`, `start_listener()`.
+
+---
+
+## Adjustments & settings
+
+Selene ships the surfaces that NothingLess and Caelestia proved users actually
+touch on a daily basis. Each becomes a QML surface that reads/writes through a
+dedicated Rust QObject.
+
+- **Status bar** -- translucent top bar with workspace chips, active-window pill,
+  connection badge, future media + tray extension.
+- **Notification Center** -- QML-hosted D-Bus notification daemon with persistence,
+  history and DND.
+- **Launcher** -- fuzzy search over apps / files / shell actions with prefix
+  triggers (`@app`, `>action`), modeled after Hax.
+- **Clipboard** -- searchable, categorized, favorites + QR/URL previews.
+- **Quick Settings** -- network, bluetooth, audio and battery toggles that
+  write through to `NetworkManager` / `bluetoothctl` / `wpctl` via small Rust
+  commands.
+- **Settings panel** -- searchable visual config split into 11 sections
+  (bar, dock, notch, theme, AI, compositor, binds, monitors, wallpapers...).
+- **Overview** -- Mission Control-style workspace manager with live window
+  previews and drag-and-drop moving.
+
+Each surface is a regular QML file in the `io.github.selene.shell` module, so
+themes can opt in or out of any of them.
 
 ---
 
@@ -85,10 +153,11 @@ users writing their own config.
 ### Rust
 
 - Zero-cost abstractions and strict compile-time safety for a process that runs 24/7.
-- `hyprland-rs` provides a typed, async API over the Hyprland Unix socket.
+- `hyprland-rs` gives us a typed, async-capable client over the Hyprland Unix socket.
 - `mlua` embeds Lua 5.4 with sandboxing and a ~20 KB state footprint.
-- `cxx-qt` (or `qmetaobject-rs`) bridges the Rust backend to the QML engine without an
-  intermediate C++ layer or per-frame marshalling.
+- `cxx-qt` bridges Rust to the QML engine without an intermediate C++ layer or
+  per-frame marshalling, and exposes a `CxxQtThread` helper for safe queued
+  updates from background threads.
 
 ### QML
 
@@ -103,55 +172,6 @@ users writing their own config.
 - Proven in the window manager space (AwesomeWM, Qtile).
 - Flat learning curve for users writing their own config.
 - Sandboxable -- user scripts can crash their session, never the shell.
-
----
-
-## Features
-
-### Desktop and Layout
-
-- **Dynamic Island** -- a unified notch and bar that hosts the launcher, dashboard,
-  notifications, media controls, system metrics and the power menu.
-- **Dynamic Bar** -- static, extended or island modes with per-monitor position, size
-  and widget groups.
-- **Free Layout** -- a floating, Windows-like mode with intelligent edge snap and
-  keyboard-driven tiling helpers.
-- **Overview** -- a Mission Control-style workspace manager with live window previews
-  and drag-and-drop moving.
-
-### Configuration
-
-- **Lua-First Config** -- `~/.config/selene/init.lua` is the single source of truth.
-- **Reactive JSON Overrides** -- ad-hoc tweaks live in `~/.local/state/selene/` and
-  are consumed by the Lua engine, never the other way around.
-- **Token Theming** -- rounding, spacing, fonts, animations and transparency derive from
-  a central token map, modeled after Caelestia's `shell-tokens.json`.
-- **Material You** -- wallpaper-driven palette generation via `matugen`, propagated to
-  GTK, Qt, Kitty and Discord.
-
-### Compositor Integration
-
-- **Hyprland Bridge** -- a typed Rust client that hydrates QML models from the IPC
-  stream with zero allocations on the hot path.
-- **Snapshot/Restore** -- instant rollback for game mode, focus mode and any config
-  experiment.
-- **Lockscreen** -- secure `WlSessionLock` plus PAM authentication.
-
-### System and Productivity
-
-- **App Launcher** -- fuzzy search with multi-tab categories.
-- **Clipboard Manager** -- searchable history with categories and favorites.
-- **FPS Monitoring** -- MangoHud + `libambfps.so` pipeline ported from NothingLess,
-  reading from shared memory and rendered in the island.
-- **Notifications** -- D-Bus notification server with persistence, history and DND.
-- **Audio, Network and Bluetooth** -- Wi-Fi scan/connect, Bluetooth pairing and a
-  PulseAudio/PipeWire mixer.
-
-### Media and AI
-
-- **MPRIS Controller** -- media controls across the bar, island and dashboard.
-- **AI Sidebar** -- multi-provider chat (OpenAI, Anthropic, Gemini, Ollama and more)
-  with tool calling and MCP-style agents.
 
 ---
 
@@ -178,12 +198,6 @@ cargo generate-lockfile --manifest-path rust/Cargo.toml
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
-
-The first configure auto-fetches the
-[`cxx-qt-cmake`](https://github.com/KDAB/cxx-qt-cmake) integration layer (pinned to
-the tag that matches the in-tree `cxx-qt` Rust crate) and compiles the Rust static
-library, the C++ glue generated by `cxx-qt-gen`, and the `selene-shell` executable
-in one pass.
 
 ### Run
 
@@ -284,22 +298,22 @@ plain Lua tables returned from their respective files.
 
 ## Project Status
 
-Selene is in early design and prototyping. The architecture and toolchain decisions are
-being validated through a minimal proof of concept before full development begins.
+Selene is actively prototyping the compositor bridge and core surfaces. The
+event-driven pipeline is live; the rest of the HUD is being ported.
 
 ### Milestones
 
 - [x] Rust project skeleton with `cxx-qt` bridge
-- [x] Hyprland IPC connection (`hyprland-rs`, 1 Hz polling -- push-based event
-      listener queued behind the async/tokio bridge)
+- [x] Hyprland IPC connection (`hyprland-rs`, push-based via event listener +
+      `cxx_qt::CxxQtThread` queued calls back to the Qt main thread)
 - [x] Ambxst-style non-invasive installer + `selene` CLI surface
 - [x] Design tokens (`rust/qml/Tokens.qml` singleton) + mock `Bar.qml` driven by
       live `Bridge` properties
-- [ ] QML panel rendering the rest of the shell surface (notifications, OSD, launcher)
-- [ ] Lua config loader exposing values to QML
-- [ ] Launcher overlay with fuzzy finder
+- [ ] Launcher overlay (Hax-style)
 - [ ] Dynamic Island with media, metrics and notifications
 - [ ] Theme engine with `matugen` integration
+- [ ] Lua config loader exposing values to QML
+- [ ] Settings panel + per-screen overrides
 - [ ] Snapshot/restore for game and focus modes
 - [ ] Lockscreen with PAM and `WlSessionLock`
 
@@ -336,6 +350,8 @@ Apache 2.0 -- see [LICENSE](LICENSE).
   philosophy, token-based theming, fluid overlay language.
 - **[NothingLess](https://github.com/leriart/NothingLess)** -- axctl bridge, Dynamic
   Island, Ndot visual language, FPS pipeline, the entire predecessor codebase.
+- **[Hax](https://github.com/fabiolopezperez-hue/ambxst-Hax)** -- spotlight/launcher
+  with calculator and plugin system.
 - **[AwesomeWM](https://github.com/awesomeWM/awesome)** -- proven Lua-driven window
   manager configuration model.
 - **[Waybar / Eww](https://github.com/Alexays/Waybar)** -- QML-based overlays that
