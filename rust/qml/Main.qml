@@ -40,6 +40,12 @@ ApplicationWindow {
         Component.onCompleted: notifierBackend.refresh_from_disk()
     }
 
+    Config {
+        id: configBackend
+
+        Component.onCompleted: configBackend.reload()
+    }
+
     Timer {
         // Slow fallback refresh; the Rust event listener pushes real updates
         // through the cxx-qt queued bridge, this is just a safety net in case
@@ -153,6 +159,52 @@ ApplicationWindow {
                     color: bridge.connected ? Tokens.success : Tokens.danger
                     font.family: Tokens.monoFamily
                     font.pixelSize: Tokens.fontSm
+                }
+
+                Label {
+                    text: "config"
+                    color: Tokens.textMuted
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontSm
+                }
+                Label {
+                    Layout.fillWidth: true
+                    text: (configBackend.defaults_used ? "defaults" : "loaded") + "  " +
+                          (configBackend.status || "")
+                    color: configBackend.defaults_used ? Tokens.danger : Tokens.textMuted
+                    font.family: Tokens.monoFamily
+                    font.pixelSize: Tokens.fontXs
+                    elide: Text.ElideRight
+                }
+
+                Label {
+                    text: "panel height"
+                    color: Tokens.textMuted
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontSm
+                }
+                Label {
+                    text: String(configBackend.panel_height) + " px  (" +
+                          configBackend.panel_position + ", " +
+                          (configBackend.panel_transparent ? "transparent" : "opaque") + ")"
+                    color: Tokens.text
+                    font.family: Tokens.monoFamily
+                    font.pixelSize: Tokens.fontSm
+                }
+
+                Label {
+                    text: "accent"
+                    color: Tokens.textMuted
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontSm
+                }
+                Rectangle {
+                    Layout.preferredHeight: 18
+                    Layout.preferredWidth: 56
+                    radius: 4
+                    color: configBackend.theme_accent
+                    border.color: Tokens.border
+                    border.width: 1
                 }
 
                 Item { Layout.columnSpan: 2; Layout.fillHeight: true }

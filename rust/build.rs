@@ -35,6 +35,7 @@ fn main() {
     .qrc_resources(qml_resources)
     .files([
         "src/bridge.rs",
+        "src/config.rs",
         "src/island.rs",
         "src/notifications.rs",
         "src/spawner.rs",

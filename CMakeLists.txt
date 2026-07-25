@@ -45,6 +45,12 @@ cxx_qt_import_qml_module(selene_shell_qml_module
 add_executable(selene-shell cpp/main.cpp)
 target_link_libraries(selene-shell PRIVATE selene_shell_qml_module)
 
+# mlua embeds Lua via pkg-config; propagate that link to the C++ executable
+# so the staticlib's unresolved Lua symbols resolve at link time.
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LUA54 REQUIRED IMPORTED_TARGET lua-5.4)
+target_link_libraries(selene-shell PRIVATE PkgConfig::LUA54)
+
 qt_import_qml_plugins(selene-shell)
 
 install(TARGETS selene-shell

@@ -59,7 +59,8 @@ install_deps() {
         qt6-base qt6-declarative qt6-quickcontrols2 \
         cmake ninja gcc \
         rust cargo \
-        git base-devel
+        git base-devel \
+        lua54
       ;;
     fedora)
       log "Detected Fedora. Installing build dependencies via dnf..."
@@ -67,7 +68,8 @@ install_deps() {
         qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtquickcontrols2-devel \
         cmake ninja-build gcc gcc-c++ \
         rust cargo \
-        git
+        git \
+        lua-devel
       ;;
     nixos)
       log "Detected NixOS. Use the Selene flake for a fully reproducible build:"
