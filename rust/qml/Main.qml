@@ -41,6 +41,7 @@ ApplicationWindow {
             id: bar
             Layout.fillWidth: true
             bridge: bridge
+            launcher: launcher
         }
 
         Rectangle {
@@ -172,8 +173,30 @@ ApplicationWindow {
                 onClicked: bridge.refresh()
             }
             Button {
+                text: "Launcher"
+                onClicked: launcher.open()
+            }
+            Button {
                 text: "Quit"
                 onClicked: Qt.quit()
+            }
+        }
+    }
+
+    Launcher {
+        id: launcher
+        anchors.fill: parent
+        z: 1000
+        Keys.onEscapePressed: launcher.close()
+    }
+
+    Item {
+        anchors.fill: parent
+        focus: true
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_Super_L || event.key === Qt.Key_Super_R) {
+                launcher.toggle();
+                event.accepted = true;
             }
         }
     }

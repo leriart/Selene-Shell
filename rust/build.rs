@@ -6,6 +6,7 @@ fn main() {
         "qml/Main.qml".into(),
         QmlFile::from("qml/Tokens.qml").singleton(true),
         "qml/Bar.qml".into(),
+        "qml/Launcher.qml".into(),
     ];
 
     let qml_resources = QResources::new()
@@ -14,6 +15,9 @@ fn main() {
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/Bar.qml").alias("qml/Bar.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/Launcher.qml").alias("qml/Launcher.qml"),
         ));
 
     CxxQtBuilder::new_qml_module(

@@ -8,6 +8,7 @@ Rectangle {
     id: bar
 
     property var bridge: null
+    property var launcher: null
 
     height: Tokens.barHeight
     radius: Tokens.radiusMd
@@ -32,6 +33,28 @@ Rectangle {
             font.pixelSize: Tokens.fontMd
             font.bold: true
             font.letterSpacing: 0.5
+        }
+
+        Rectangle {
+            Layout.preferredHeight: Tokens.chipSize - 6
+            Layout.preferredWidth: 36
+            radius: Tokens.radiusSm
+            color: Qt.darker(Tokens.accent, 4.5)
+            border.color: Tokens.accent
+            border.width: 1
+
+            Label {
+                anchors.centerIn: parent
+                text: "SUPER"
+                color: Tokens.accent
+                font.family: Tokens.monoFamily
+                font.pixelSize: Tokens.fontXs
+            }
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: if (bar.launcher) bar.launcher.toggle()
+            }
         }
 
         Item { width: Tokens.spacingSm; Layout.fillHeight: true }
