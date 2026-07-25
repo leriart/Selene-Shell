@@ -1,6 +1,8 @@
 use core::pin::Pin;
+use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use hyprland::data::{Client, Workspace, Workspaces};
+use hyprland::event_listener::EventListener;
 use hyprland::prelude::*;
 
 #[cxx_qt::bridge]
@@ -22,6 +24,7 @@ pub mod qobject {
         #[qproperty(QString, active_window_class)]
         #[qproperty(QString, active_window_title)]
         #[qproperty(QString, hyprland_status)]
+        #[qproperty(bool, listener_started)]
         type Bridge = super::BridgeRust;
 
         #[qinvokable]
@@ -32,7 +35,12 @@ pub mod qobject {
 
         #[qinvokable]
         fn refresh(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn start_listener(self: Pin<&mut Self>);
     }
+
+    impl cxx_qt::Threading for Bridge {}
 }
 
 #[derive(Default)]
@@ -46,6 +54,7 @@ pub struct BridgeRust {
     active_window_class: QString,
     active_window_title: QString,
     hyprland_status: QString,
+    listener_started: bool,
 }
 
 impl qobject::Bridge {
@@ -127,5 +136,73 @@ impl qobject::Bridge {
                     .set_active_window_title(QString::from(format!("err: {err}")));
             }
         }
+    }
+
+    pub fn start_listener(self: Pin<&mut Self>) {
+        // The cxx-qt generated setters take `Pin<&mut Self>`, but
+        // `qt_thread` (from the `cxx_qt::Threading` trait) takes `&Self`,
+        // so re-pin first.
+        if *self.listener_started() {
+            return;
+        }
+        let thread: cxx_qt::CxxQtThread<qobject::Bridge> = self.as_ref().qt_thread();
+
+        self.set_listener_started(true);
+
+        // The `hyprland-rs` event handlers are not `Send`, so the listener
+        // can't cross a tokio task boundary. Spawn a dedicated OS thread
+        // instead and use the cxx-qt queued-call bridge to push refresh()
+        // back onto the Qt main thread.
+        std::thread::Builder::new()
+            .name("selene-hyprland".into())
+            .spawn(move || {
+                let _ = thread.queue(|mut bridge| {
+                    bridge
+                        .as_mut()
+                        .set_hyprland_status(QString::from("listener starting"));
+                });
+
+                let mut listener = EventListener::new();
+
+                macro_rules! on_event {
+                    ($method:ident) => {
+                        listener.$method({
+                            let t = thread.clone();
+                            move |_data| {
+                                let _ = t.queue(|bridge| bridge.refresh());
+                            }
+                        })
+                    };
+                }
+
+                on_event!(add_workspace_changed_handler);
+                on_event!(add_workspace_added_handler);
+                on_event!(add_workspace_deleted_handler);
+                on_event!(add_workspace_moved_handler);
+                on_event!(add_workspace_renamed_handler);
+                on_event!(add_active_window_changed_handler);
+                on_event!(add_active_monitor_changed_handler);
+                on_event!(add_window_title_changed_handler);
+                on_event!(add_window_opened_handler);
+                on_event!(add_window_closed_handler);
+                on_event!(add_window_moved_handler);
+
+                let _ = thread.queue(|mut bridge| {
+                    bridge
+                        .as_mut()
+                        .set_hyprland_status(QString::from("listener ok"));
+                });
+
+                if let Err(err) = listener.start_listener() {
+                    let _ = thread.queue(move |mut bridge| {
+                        bridge
+                            .as_mut()
+                            .set_hyprland_status(QString::from(format!(
+                                "listener: {err}"
+                            )));
+                    });
+                }
+            })
+            .expect("selene: failed to spawn event listener thread");
     }
 }

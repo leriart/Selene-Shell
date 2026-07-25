@@ -18,10 +18,15 @@ ApplicationWindow {
         greeting: "Selene -- bridge ready."
         counter: 0
         hyprland_status: "not connected"
+
+        Component.onCompleted: bridge.start_listener()
     }
 
     Timer {
-        interval: 1000
+        // Slow fallback refresh; the Rust event listener pushes real updates
+        // through the cxx-qt queued bridge, this is just a safety net in case
+        // an event slips through (or we started without a Hyprland session).
+        interval: 10000
         running: true
         repeat: true
         onTriggered: bridge.refresh()
