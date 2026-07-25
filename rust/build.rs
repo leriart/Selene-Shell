@@ -38,6 +38,7 @@ fn main() {
         "src/config.rs",
         "src/island.rs",
         "src/notifications.rs",
+        "src/palette.rs",
         "src/spawner.rs",
     ])
     .build();

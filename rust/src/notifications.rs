@@ -18,6 +18,7 @@ pub mod qobject {
         #[qproperty(QString, notifications_json)]
         #[qproperty(QString, status_json)]
         #[qproperty(bool, dnd_enabled)]
+        #[qproperty(bool, dbus_connected)]
         #[qproperty(i32, unread_count)]
         type Notifier = super::NotifierRust;
 
@@ -61,6 +62,7 @@ pub struct NotifierRust {
     notifications_json: QString,
     status_json: QString,
     dnd_enabled: bool,
+    dbus_connected: bool,
     unread_count: i32,
 }
 
@@ -76,15 +78,17 @@ pub struct Notification {
     pub read: bool,
 }
 
-type SharedStore = Arc<Mutex<Store>>;
-
 #[derive(Default)]
 pub struct Store {
     pub next_id: u32,
     pub entries: Vec<Notification>,
     pub dnd: bool,
     pub storage_dir: Option<std::path::PathBuf>,
+    pub dbus_connected: bool,
+    pub dbus_error: Option<String>,
 }
+
+type SharedStore = Arc<Mutex<Store>>;
 
 fn shared() -> &'static SharedStore {
     use std::sync::OnceLock;
@@ -138,13 +142,19 @@ fn entries_json(state: &Store) -> QString {
 }
 
 fn status_json(state: &Store) -> QString {
-    let json = serde_json::json!({
+    let mut obj = serde_json::json!({
         "dnd": state.dnd,
         "count": state.entries.len(),
         "unread": unread_count(state),
-        "next_id": state.next_id
+        "next_id": state.next_id,
     });
-    QString::from(json.to_string().as_str())
+    if let Some(err) = &state.dbus_error {
+        obj["dbus_error"] = serde_json::Value::String(err.clone());
+    } else {
+        obj["dbus_error"] = serde_json::Value::Null;
+    }
+    obj["dbus_connected"] = serde_json::Value::Bool(state.dbus_connected);
+    QString::from(obj.to_string().as_str())
 }
 
 fn ensure_storage_dir(state: &mut Store) {
@@ -300,16 +310,18 @@ impl qobject::Notifier {
             Ok(s) => s,
             Err(_) => return,
         };
-        store.storage_dir = None; // force reload from disk
+        store.storage_dir = None;
         ensure_storage_dir(&mut store);
         let count = unread_count(&store);
         let entries = entries_json(&store);
         let status = status_json(&store);
         let dnd = store.dnd;
+        let dbus_connected = store.dbus_connected;
         drop(store);
 
         let mut this = self;
         this.as_mut().set_dnd_enabled(dnd);
+        this.as_mut().set_dbus_connected(dbus_connected);
         this.as_mut().set_notifications_json(entries);
         this.as_mut().set_status_json(status);
         this.as_mut().set_unread_count(count);

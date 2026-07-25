@@ -46,6 +46,19 @@ ApplicationWindow {
         Component.onCompleted: configBackend.reload()
     }
 
+    Palette {
+        id: paletteBackend
+
+        Component.onCompleted: paletteBackend.refresh()
+    }
+
+    Timer {
+        interval: 5000
+        running: true
+        repeat: true
+        onTriggered: paletteBackend.refresh()
+    }
+
     Timer {
         // Slow fallback refresh; the Rust event listener pushes real updates
         // through the cxx-qt queued bridge, this is just a safety net in case
