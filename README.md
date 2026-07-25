@@ -315,10 +315,17 @@ event-driven pipeline is live; the rest of the HUD is being ported.
 - [x] Dynamic Island overlay (`IslandPill`) with `/proc`-backed metrics and
       mocked media, morphing between collapsed pill and expanded card via
       implicit width/height `Behavior` animations
+- [x] Notification center + persistence (`Notifier` QObject with JSON file
+      storage at `~/.local/share/selene/notifications.json`, DND toggle,
+      `mark_read/clear/refresh_from_disk` qinvokables, and `NotificationPanel.qml`
+      panel rendering)
+- [ ] D-Bus daemon -- serve `org.freedesktop.Notifications` on the session bus
+      so any `notify-send` lands in the `Notifier` queue (architecture in place,
+      `dbus`-crate binding held back until we wire a response message that matches
+      the spec)
 - [ ] Theme engine with `matugen` integration (color extraction, DPI scaling)
 - [ ] Lua config loader exposing values to QML
 - [ ] Settings panel + per-screen overrides
-- [ ] Notification center + D-Bus daemon (org.freedesktop.Notifications)
 - [ ] Snapshot/restore for game and focus modes
 - [ ] Lockscreen with PAM and `WlSessionLock`
 
