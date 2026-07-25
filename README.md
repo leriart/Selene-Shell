@@ -205,6 +205,39 @@ source = ~/.local/share/selene/hyprland.conf
 
 Your existing Hyprland config is never modified.
 
+### One-shot installer
+
+```bash
+curl -sL https://github.com/leriart/selene-shell/raw/main/install.sh | sh
+```
+
+The installer mirrors Ambxst's "no sudo, lives in your home" model:
+
+1. Detects the distro (Arch, Fedora, Debian/Ubuntu, NixOS) and installs the
+   build dependencies needed for the cxx-qt + CMake + Rust toolchain.
+2. Clones the repo into `~/.local/src/selene-shell` (or pulls if present).
+3. Configures CMake and builds in Release.
+4. Symlinks `cli.sh` as `~/.local/bin/selene`.
+5. Stages `~/.local/share/selene` for generated Hyprland config and future
+   state files.
+6. Optionally runs `selene install hyprland` to add the `source =` line.
+
+`selene <command>` exposes:
+
+| Command               | What it does                                         |
+|-----------------------|------------------------------------------------------|
+| `selene`              | Launch the shell (alias of `run`).                   |
+| `selene run`          | Launch the shell.                                    |
+| `selene reload`       | `pkill -USR1 -x selene-shell`.                       |
+| `selene quit`         | `pkill -x selene-shell`.                             |
+| `selene update`       | `git pull` + rebuild + relink.                       |
+| `selene status`       | Print install paths and binary state.                |
+| `selene install hyprland` | Append a `source =` line with markers; never edits the rest of the config. |
+| `selene remove hyprland`  | Strip the markers and source line cleanly.       |
+
+Override paths with `SELENE_SRC`, `SELENE_BUILD`, `SELENE_SHARE`, `SELENE_BIN_DIR`
+or `HYPRLAND_CONFIG` when needed.
+
 ---
 
 ## Configuration
@@ -259,6 +292,7 @@ being validated through a minimal proof of concept before full development begin
 - [x] Rust project skeleton with `cxx-qt` bridge
 - [x] Hyprland IPC connection (`hyprland-rs`, 1 Hz polling -- push-based event
       listener queued behind the async/tokio bridge)
+- [x] Ambxst-style non-invasive installer + `selene` CLI surface
 - [ ] QML panel displaying active workspaces
 - [ ] Lua config loader exposing values to QML
 - [ ] Launcher overlay with fuzzy finder
