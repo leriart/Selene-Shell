@@ -28,6 +28,12 @@ ApplicationWindow {
         Component.onCompleted: spawner.refresh()
     }
 
+    Island {
+        id: islandBackend
+
+        Component.onCompleted: islandBackend.refresh()
+    }
+
     Timer {
         // Slow fallback refresh; the Rust event listener pushes real updates
         // through the cxx-qt queued bridge, this is just a safety net in case
@@ -48,6 +54,12 @@ ApplicationWindow {
             Layout.fillWidth: true
             bridge: bridge
             launcher: launcher
+        }
+
+        IslandPill {
+            id: islandWidget
+            Layout.alignment: Qt.AlignHCenter
+            islandSource: islandBackend
         }
 
         Rectangle {

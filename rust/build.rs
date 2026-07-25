@@ -6,6 +6,7 @@ fn main() {
         "qml/Main.qml".into(),
         QmlFile::from("qml/Tokens.qml").singleton(true),
         "qml/Bar.qml".into(),
+        "qml/IslandPill.qml".into(),
         "qml/Launcher.qml".into(),
     ];
 
@@ -17,6 +18,9 @@ fn main() {
             QResourceFile::new("qml/Bar.qml").alias("qml/Bar.qml"),
         ))
         .resource(QResource::new().file(
+            QResourceFile::new("qml/IslandPill.qml").alias("qml/IslandPill.qml"),
+        ))
+        .resource(QResource::new().file(
             QResourceFile::new("qml/Launcher.qml").alias("qml/Launcher.qml"),
         ));
 
@@ -25,6 +29,6 @@ fn main() {
     )
     .qt_module("Qml")
     .qrc_resources(qml_resources)
-    .files(["src/bridge.rs", "src/spawner.rs"])
+    .files(["src/bridge.rs", "src/island.rs", "src/spawner.rs"])
     .build();
 }
