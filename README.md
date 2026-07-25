@@ -323,11 +323,20 @@ event-driven pipeline is live; the rest of the HUD is being ported.
       loads `~/.config/selene/init.lua` on startup, exposes every value as
       `#[qproperty]`, and falls back to defaults when the file is absent or
       invalid)
+- [x] **Live palette engine** -- `Palette` QObject reads the wallpaper at
+      `~/.local/share/selene/wallpaper.png` (or swww/`Pictures/Wallpapers`),
+      extracts the dominant 6 colors via 5-bit bucketing, derives an
+      accent + surface + background palette, and exposes it as properties
+      (`accent`, `surface`, `background`, `text_color`, `dominant_json`).
+      Inspired by [cava-bg](https://github.com/leriart/cava-bg)'s adaptive
+      color feature; embedded here to keep the theme-update pipeline in-process
 - [ ] D-Bus daemon -- serve `org.freedesktop.Notifications` on the session bus
       so any `notify-send` lands in the `Notifier` queue (architecture in place,
       `dbus`-crate binding held back until we wire a response message that matches
       the spec)
-- [ ] Theme engine with `matugen` integration (color extraction, DPI scaling)
+- [ ] Wire `Palette` colors into `Tokens` singleton at runtime so every
+      surface repaints when the wallpaper changes
+- [ ] Theme engine with `matugen` integration (DPI scaling, Material You extras)
 - [ ] Settings panel + per-screen overrides
 - [ ] Snapshot/restore for game and focus modes
 - [ ] Lockscreen with PAM and `WlSessionLock`
