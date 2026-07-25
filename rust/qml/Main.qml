@@ -34,6 +34,12 @@ ApplicationWindow {
         Component.onCompleted: islandBackend.refresh()
     }
 
+    Notifier {
+        id: notifierBackend
+
+        Component.onCompleted: notifierBackend.refresh_from_disk()
+    }
+
     Timer {
         // Slow fallback refresh; the Rust event listener pushes real updates
         // through the cxx-qt queued bridge, this is just a safety net in case
@@ -195,6 +201,10 @@ ApplicationWindow {
                 onClicked: launcher.open()
             }
             Button {
+                text: "Notif"
+                onClicked: notifierPanel.toggle()
+            }
+            Button {
                 text: "Quit"
                 onClicked: Qt.quit()
             }
@@ -218,5 +228,12 @@ ApplicationWindow {
                 event.accepted = true;
             }
         }
+    }
+
+    NotificationPanel {
+        id: notifierPanel
+        anchors.fill: parent
+        z: 1100
+        notifier: notifierBackend
     }
 }

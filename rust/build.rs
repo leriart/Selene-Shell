@@ -8,6 +8,7 @@ fn main() {
         "qml/Bar.qml".into(),
         "qml/IslandPill.qml".into(),
         "qml/Launcher.qml".into(),
+        "qml/NotificationPanel.qml".into(),
     ];
 
     let qml_resources = QResources::new()
@@ -22,6 +23,9 @@ fn main() {
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/Launcher.qml").alias("qml/Launcher.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/NotificationPanel.qml").alias("qml/NotificationPanel.qml"),
         ));
 
     CxxQtBuilder::new_qml_module(
@@ -29,6 +33,11 @@ fn main() {
     )
     .qt_module("Qml")
     .qrc_resources(qml_resources)
-    .files(["src/bridge.rs", "src/island.rs", "src/spawner.rs"])
+    .files([
+        "src/bridge.rs",
+        "src/island.rs",
+        "src/notifications.rs",
+        "src/spawner.rs",
+    ])
     .build();
 }
