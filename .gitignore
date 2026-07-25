@@ -1,0 +1,28 @@
+/target/
+/build/
+/build-*/
+/CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+.qmlls.ini
+
+# Qt
+*.user
+*.user.*
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+
+# Rust
+**/*.rs.bk
+Cargo.lock.bak
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store

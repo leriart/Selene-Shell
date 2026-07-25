@@ -1,0 +1,21 @@
+[package]
+name = "selene_shell"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Selene -- a QML shell for Hyprland, written in Rust"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+cxx = "1"
+cxx-qt = "0.9"
+cxx-qt-lib = { version = "0.9", features = ["qt_full"] }
+
+[build-dependencies]
+cxx-qt-build = "0.9"
+
+[features]
+link_qt_object_files = ["cxx-qt-build/link_qt_object_files"]
