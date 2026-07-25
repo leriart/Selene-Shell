@@ -330,12 +330,16 @@ event-driven pipeline is live; the rest of the HUD is being ported.
       (`accent`, `surface`, `background`, `text_color`, `dominant_json`).
       Inspired by [cava-bg](https://github.com/leriart/cava-bg)'s adaptive
       color feature; embedded here to keep the theme-update pipeline in-process
+- [x] **Theme runtime override** -- `Palette` color updates push into the
+      `Tokens` singleton via `Connections` with `Behavior on color` smooth
+      `ColorAnimation` transitions; every visible surface repaints when the
+      wallpaper changes
 - [ ] D-Bus daemon -- serve `org.freedesktop.Notifications` on the session bus
       so any `notify-send` lands in the `Notifier` queue (architecture in place,
       `dbus`-crate binding held back until we wire a response message that matches
       the spec)
-- [ ] Wire `Palette` colors into `Tokens` singleton at runtime so every
-      surface repaints when the wallpaper changes
+- [ ] Wire `Palette` colors into more Tokens (font, borders, danger/success) so
+      every chrome surface paints with the wallpaper-derived palette
 - [ ] Theme engine with `matugen` integration (DPI scaling, Material You extras)
 - [ ] Settings panel + per-screen overrides
 - [ ] Snapshot/restore for game and focus modes
