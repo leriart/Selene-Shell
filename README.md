@@ -309,7 +309,9 @@ event-driven pipeline is live; the rest of the HUD is being ported.
 - [x] Ambxst-style non-invasive installer + `selene` CLI surface
 - [x] Design tokens (`rust/qml/Tokens.qml` singleton) + mock `Bar.qml` driven by
       live `Bridge` properties
-- [ ] Launcher overlay (Hax-style)
+- [x] Launcher overlay (Hax-style) backed by a `Spawner` QObject that enumerates
+      `/usr/share/applications` and exposes `launch(exec)` / `run_action(label)`
+      qinvokables
 - [ ] Dynamic Island with media, metrics and notifications
 - [ ] Theme engine with `matugen` integration
 - [ ] Lua config loader exposing values to QML
