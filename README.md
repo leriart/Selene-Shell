@@ -319,12 +319,15 @@ event-driven pipeline is live; the rest of the HUD is being ported.
       storage at `~/.local/share/selene/notifications.json`, DND toggle,
       `mark_read/clear/refresh_from_disk` qinvokables, and `NotificationPanel.qml`
       panel rendering)
+- [x] Lua config loader (`mlua` 0.12 embedded in Rust; the `Config` QObject
+      loads `~/.config/selene/init.lua` on startup, exposes every value as
+      `#[qproperty]`, and falls back to defaults when the file is absent or
+      invalid)
 - [ ] D-Bus daemon -- serve `org.freedesktop.Notifications` on the session bus
       so any `notify-send` lands in the `Notifier` queue (architecture in place,
       `dbus`-crate binding held back until we wire a response message that matches
       the spec)
 - [ ] Theme engine with `matugen` integration (color extraction, DPI scaling)
-- [ ] Lua config loader exposing values to QML
 - [ ] Settings panel + per-screen overrides
 - [ ] Snapshot/restore for game and focus modes
 - [ ] Lockscreen with PAM and `WlSessionLock`
