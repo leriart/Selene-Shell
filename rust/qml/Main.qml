@@ -22,6 +22,12 @@ ApplicationWindow {
         Component.onCompleted: bridge.start_listener()
     }
 
+    Spawner {
+        id: spawner
+
+        Component.onCompleted: spawner.refresh()
+    }
+
     Timer {
         // Slow fallback refresh; the Rust event listener pushes real updates
         // through the cxx-qt queued bridge, this is just a safety net in case
@@ -187,6 +193,7 @@ ApplicationWindow {
         id: launcher
         anchors.fill: parent
         z: 1000
+        spawner: spawner
         Keys.onEscapePressed: launcher.close()
     }
 

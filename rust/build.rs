@@ -25,6 +25,6 @@ fn main() {
     )
     .qt_module("Qml")
     .qrc_resources(qml_resources)
-    .files(["src/bridge.rs"])
+    .files(["src/bridge.rs", "src/spawner.rs"])
     .build();
 }

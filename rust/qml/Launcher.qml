@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
+import io.github.selene.shell
+
 Rectangle {
     id: root
 
@@ -24,10 +26,11 @@ Rectangle {
         else open();
     }
 
+    property var spawner: null
+
     visible: false
     color: Qt.rgba(0, 0, 0, 0.55)
 
-    // Crisp scaling when the panel opens
     Behavior on opacity {
         NumberAnimation { duration: Tokens.durationFast }
     }
@@ -37,27 +40,29 @@ Rectangle {
         onClicked: root.close()
     }
 
-    // Built-in actions (mock list, replaced by mlua/exec dispatch later).
-    ListModel {
-        id: actionModel
-        ListElement { kind: "action"; label: "Lock screen"; exec: "loginctl lock-session" }
-        ListElement { kind: "action"; label: "Suspend"; exec: "systemctl suspend" }
-        ListElement { kind: "action"; label: "Reload shell"; exec: "selene reload" }
-        ListElement { kind: "action"; label: "Quit shell"; exec: "selene quit" }
-        ListElement { kind: "action"; label: "Open settings"; exec: "selene run toggle-settings" }
+    property var appEntries: []
+    property var actionEntries: []
+
+    function rebuildEntries() {
+        if (!spawner) {
+            appEntries = [];
+            actionEntries = [];
+            return;
+        }
+        try {
+            appEntries = JSON.parse(spawner.apps_json || "[]");
+        } catch (e) {
+            appEntries = [];
+        }
+        try {
+            actionEntries = JSON.parse(spawner.actions_json || "[]");
+        } catch (e) {
+            actionEntries = [];
+        }
     }
 
-    // Built-in app entries (placeholder; real impl enumerates .desktop files).
-    ListModel {
-        id: appModel
-        ListElement { kind: "app"; label: "Terminal"; exec: "kitty" }
-        ListElement { kind: "app"; label: "Files"; exec: "thunar" }
-        ListElement { kind: "app"; label: "Browser"; exec: "firefox" }
-        ListElement { kind: "app"; label: "Editor"; exec: "code" }
-        ListElement { kind: "app"; label: "Music"; exec: "spotify" }
-    }
+    onSpawnerChanged: rebuildEntries()
 
-    // Fuse apps + actions into a single source list.
     property var results: []
     function update() {
         const query = input.text.trim().toLowerCase();
@@ -66,20 +71,23 @@ Rectangle {
         const needle = (isAction ? query.slice(1) :
                         isApp    ? query.slice(1) :
                         query).trim();
+        const bag = isAction ? actionEntries : appEntries;
 
-        const bag = (isAction || (!isApp && query.length > 0 && needle.length === 0))
-                    ? actionModel : appModel;
-
-        if (needle.length === 0 && !isAction) {
+        if (needle.length === 0) {
             results = [];
             return;
         }
 
         const out = [];
-        for (let i = 0; i < bag.count; ++i) {
-            const item = bag.get(i);
-            if (needle.length === 0 || item.label.toLowerCase().indexOf(needle) !== -1) {
-                out.push(item);
+        for (let i = 0; i < bag.length; ++i) {
+            const item = bag[i];
+            const label = (item.label || "").toLowerCase();
+            if (label.indexOf(needle) !== -1) {
+                out.push({
+                    kind: isAction ? "action" : "app",
+                    label: item.label,
+                    exec: item.exec
+                });
             }
             if (out.length >= 8) break;
         }
@@ -141,7 +149,7 @@ Rectangle {
                     resultsView.decrementCurrentIndex();
                     event.accepted = true;
                 } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                    if (resultsView.count > 0) {
+                    if (results.length > 0) {
                         const item = results[resultsView.currentIndex];
                         if (item) launch(item);
                     }
@@ -156,8 +164,9 @@ Rectangle {
             anchors.top: parent.top
             anchors.topMargin: 18
             anchors.rightMargin: Tokens.spacingLg
-            text: input.text.length === 0 ? "@ app   > action   \u2191\u2193  \u23CE  esc"
-                                          : (results.length + " matches")
+            text: input.text.length === 0
+                  ? "@ app   > action   " + String.fromCharCode(0x2191, 0x2193) + "  " + String.fromCharCode(0x23CE) + "  esc"
+                  : (results.length + " matches")
             color: Tokens.textMuted
             font.family: Tokens.monoFamily
             font.pixelSize: Tokens.fontXs
@@ -173,7 +182,6 @@ Rectangle {
             anchors.margins: 1
             clip: true
 
-            // Force re-evaluation when results change
             Connections {
                 target: root
                 function onResultsChanged() {
@@ -266,10 +274,15 @@ Rectangle {
     }
 
     function launch(item) {
-        if (!item) return;
-        console.log("selene-launcher: would exec", item.exec, "(kind=" + item.kind + ")");
-        // Real impl: forward through a Rust spawn helper that handles D-Bus
-        // activation, .desktop file resolution and detached processes.
+        if (!item || !item.exec) return;
+        console.log("selene-launcher: launching", item.kind, item.label, "->", item.exec);
+        if (spawner) {
+            if (item.kind === "action") {
+                spawner.run_action(item.label);
+            } else {
+                spawner.launch(item.exec);
+            }
+        }
         root.close();
     }
 }
