@@ -312,10 +312,13 @@ event-driven pipeline is live; the rest of the HUD is being ported.
 - [x] Launcher overlay (Hax-style) backed by a `Spawner` QObject that enumerates
       `/usr/share/applications` and exposes `launch(exec)` / `run_action(label)`
       qinvokables
-- [ ] Dynamic Island with media, metrics and notifications
-- [ ] Theme engine with `matugen` integration
+- [x] Dynamic Island overlay (`IslandPill`) with `/proc`-backed metrics and
+      mocked media, morphing between collapsed pill and expanded card via
+      implicit width/height `Behavior` animations
+- [ ] Theme engine with `matugen` integration (color extraction, DPI scaling)
 - [ ] Lua config loader exposing values to QML
 - [ ] Settings panel + per-screen overrides
+- [ ] Notification center + D-Bus daemon (org.freedesktop.Notifications)
 - [ ] Snapshot/restore for game and focus modes
 - [ ] Lockscreen with PAM and `WlSessionLock`
 
