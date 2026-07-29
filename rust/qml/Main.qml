@@ -13,6 +13,15 @@ ApplicationWindow {
     title: "Selene -- Rust <-> Hyprland <-> QML"
     color: Tokens.bg
 
+    // Background wallpaper renders inside the ApplicationWindow. Layer-shell
+    // support would push it underneath the compositor's windows; see TODO.md.
+    WallpaperSurface {
+        id: wallpaper
+        anchors.fill: parent
+        wallpaper: wallpaperBackend
+        z: -1
+    }
+
     Bridge {
         id: bridge
         greeting: "Selene -- bridge ready."
@@ -53,6 +62,12 @@ ApplicationWindow {
             paletteBackend.set_source(paletteBackend.default_source());
             paletteBackend.refresh();
         }
+    }
+
+    Wallpaper {
+        id: wallpaperBackend
+
+        Component.onCompleted: wallpaperBackend.refresh()
     }
 
     Timer {

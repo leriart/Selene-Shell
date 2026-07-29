@@ -14,9 +14,9 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CXXQT_QTCOMPONENTS Core Gui Qml Quick)
+set(CXXQT_QTCOMPONENTS Core Gui Qml Quick Multimedia QuickControls2 QuickTemplates2)
 
-find_package(Qt6 COMPONENTS ${CXXQT_QTCOMPONENTS} QuickControls2 QuickTemplates2 REQUIRED)
+find_package(Qt6 COMPONENTS ${CXXQT_QTCOMPONENTS} REQUIRED)
 set(Qt "Qt6")
 
 find_package(CxxQt QUIET)
@@ -34,7 +34,7 @@ cxx_qt_import_crate(
     MANIFEST_PATH rust/Cargo.toml
     CRATES selene_shell
     LOCKED
-    QT_MODULES Qt::Core Qt::Gui Qt::Qml Qt::Quick Qt::QuickControls2 Qt::QuickTemplates2
+    QT_MODULES Qt::Core Qt::Gui Qt::Qml Qt::Quick Qt::Multimedia Qt::QuickControls2 Qt::QuickTemplates2
 )
 
 cxx_qt_import_qml_module(selene_shell_qml_module

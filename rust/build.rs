@@ -9,6 +9,7 @@ fn main() {
         "qml/IslandPill.qml".into(),
         "qml/Launcher.qml".into(),
         "qml/NotificationPanel.qml".into(),
+        "qml/WallpaperSurface.qml".into(),
     ];
 
     let qml_resources = QResources::new()
@@ -26,6 +27,9 @@ fn main() {
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/NotificationPanel.qml").alias("qml/NotificationPanel.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/WallpaperSurface.qml").alias("qml/WallpaperSurface.qml"),
         ));
 
     CxxQtBuilder::new_qml_module(
@@ -40,6 +44,7 @@ fn main() {
         "src/notifications.rs",
         "src/palette.rs",
         "src/spawner.rs",
+        "src/wallpaper.rs",
     ])
     .build();
 }
