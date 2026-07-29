@@ -59,8 +59,19 @@ ApplicationWindow {
         id: paletteBackend
 
         Component.onCompleted: {
-            paletteBackend.set_source(paletteBackend.default_source());
+            paletteBackend.set_source(wallpaperBackend.current_path
+                                     || paletteBackend.default_source());
             paletteBackend.refresh();
+        }
+    }
+
+    Connections {
+        target: wallpaperBackend
+        function onCurrentPathChanged() {
+            if (wallpaperBackend.current_path.length > 0) {
+                paletteBackend.set_source(wallpaperBackend.current_path);
+                paletteBackend.refresh();
+            }
         }
     }
 

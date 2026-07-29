@@ -4,7 +4,9 @@ use image::{ImageReader, imageops::FilterType};
 use serde::Serialize;
 use std::cmp::Reverse;
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -77,8 +79,114 @@ fn default_source_path() -> PathBuf {
         .unwrap_or_else(|| home.join(".local/share/selene/wallpaper.png"))
 }
 
-/// Extract the top-N dominant colors from an image file.
+/// Extract a single RGB24 frame from a video via ffmpeg's `pipe:1`. Returns
+/// `None` if ffmpeg isn't available, the source isn't a recognized video,
+/// or the pipe fails.
+fn extract_video_frame(path: &Path, offset_secs: f32) -> Option<Vec<u8>> {
+    if !Command::new("ffmpeg").arg("-version").output().is_ok() {
+        return None;
+    }
+    let mut child = Command::new("ffmpeg")
+        .args([
+            "-ss", &format!("{:.2}", offset_secs.max(0.0)),
+            "-i", path.to_string_lossy().as_ref(),
+            "-frames:v", "1",
+            "-vf", "scale=64:64",
+            "-pix_fmt", "rgb24",
+            "-f", "rawvideo",
+            "pipe:1",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    let mut stdout = child.stdout.take()?;
+    let mut data = Vec::new();
+    stdout.read_to_end(&mut data).ok()?;
+    let _ = child.wait();
+    // 64*64 RGB24 -> 12288 bytes
+    if data.len() != 64 * 64 * 3 {
+        return None;
+    }
+    Some(data)
+}
+
+fn classify_is_video(path: &Path) -> bool {
+    let Some(ext) = path.extension().and_then(|s| s.to_str()) else {
+        return false;
+    };
+    matches!(
+        ext.to_lowercase().as_str(),
+        "mp4" | "webm" | "mkv" | "mov" | "avi" | "m4v"
+    )
+}
+
+fn bucket_pixels_from_rgb24(data: &[u8], count: usize) -> Option<Vec<DominantColor>> {
+    if data.len() % 3 != 0 {
+        return None;
+    }
+    let mut buckets: HashMap<(u8, u8, u8), u32> = HashMap::new();
+    for chunk in data.chunks(3) {
+        let r = (chunk[0] >> 3) << 3;
+        let g = (chunk[1] >> 3) << 3;
+        let b = (chunk[2] >> 3) << 3;
+        *buckets.entry((r, g, b)).or_insert(0) += 1;
+    }
+    if buckets.is_empty() {
+        return None;
+    }
+    let mut sorted: Vec<_> = buckets.into_iter().collect();
+    sorted.sort_by_key(|&(_, w)| Reverse(w));
+    Some(
+        sorted
+            .into_iter()
+            .take(count)
+            .map(|((r, g, b), w)| DominantColor {
+                rgb: [r, g, b],
+                hex: format!("#{:02x}{:02x}{:02x}", r, g, b),
+                weight: w,
+            })
+            .collect(),
+    )
+}
+
+/// Probe an approximate duration for a video with `ffprobe`. Returns None
+/// when ffprobe isn't available or the source isn't recognised. Only used
+/// as a fallback for offset generation when no live frame timer exists.
+fn probe_video_duration_secs(path: &Path) -> Option<f32> {
+    let output = Command::new("ffprobe")
+        .args([
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            path.to_string_lossy().as_ref(),
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let trimmed = stdout.trim();
+    let secs: f64 = trimmed.parse().ok()?;
+    Some(secs as f32)
+}
+
+/// Extract the top-N dominant colors from an image or video file.
 fn extract_dominant(path: &Path, count: usize) -> Option<Vec<DominantColor>> {
+    if classify_is_video(path) {
+        let offset = probe_video_duration_secs(path)
+            .map(|d| (d * 0.5).max(0.5))
+            .unwrap_or(0.0);
+        if let Some(data) = extract_video_frame(path, offset) {
+            if let Some(dom) = bucket_pixels_from_rgb24(&data, count) {
+                return Some(dom);
+            }
+        }
+        // Fall through to static-image extraction in case the file is
+        // actually a still misnamed as video.
+    }
+
     let img = ImageReader::open(path).ok()?.decode().ok()?;
     let small = img.resize_exact(64, 64, FilterType::Nearest).to_rgb8();
 
