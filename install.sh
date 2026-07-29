@@ -56,20 +56,20 @@ install_deps() {
     arch)
       log "Detected Arch-based system. Installing build dependencies via pacman..."
       sudo pacman -S --needed --noconfirm \
-        qt6-base qt6-declarative qt6-quickcontrols2 \
+        qt6-base qt6-declarative qt6-quickcontrols2 qt6-multimedia \
         cmake ninja gcc \
         rust cargo \
         git base-devel \
-        lua54
+        lua54 ffmpeg
       ;;
     fedora)
       log "Detected Fedora. Installing build dependencies via dnf..."
       sudo dnf install -y \
-        qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtquickcontrols2-devel \
+        qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtquickcontrols2-devel qt6-qtmultimedia-devel \
         cmake ninja-build gcc gcc-c++ \
         rust cargo \
         git \
-        lua-devel
+        lua-devel ffmpeg ffmpeg-devel
       ;;
     nixos)
       log "Detected NixOS. Use the Selene flake for a fully reproducible build:"

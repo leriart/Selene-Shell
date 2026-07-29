@@ -329,17 +329,34 @@ event-driven pipeline is live; the rest of the HUD is being ported.
       accent + surface + background palette, and exposes it as properties
       (`accent`, `surface`, `background`, `text_color`, `dominant_json`).
       Inspired by [cava-bg](https://github.com/leriart/cava-bg)'s adaptive
-      color feature; embedded here to keep the theme-update pipeline in-process
+      color feature; embedded here to keep the theme-update pipeline in-process.
+      **Also handles video wallpapers**: when the source has a video
+      extension, ffmpeg is invoked through `pipe:1` to extract a single
+      64x64 RGB24 frame which is then quantized with the same algorithm.
 - [x] **Theme runtime override** -- `Palette` color updates push into the
       `Tokens` singleton via `Connections` with `Behavior on color` smooth
       `ColorAnimation` transitions; every visible surface repaints when the
       wallpaper changes
+- [x] **Wallpaper surface** -- `Wallpaper` QObject enumerates a directory of
+      images / GIFs / videos (`jpg`, `png`, `webp`, `gif`, `apng`, `mp4`,
+      `webm`, `mkv`, `mov`, `avi`, `m4v`) and `WallpaperSurface.qml` renders
+      the right one via `Image` / `AnimatedImage` / `MediaPlayer + VideoOutput`.
+      `Palette` follows `Wallpaper.current_path` automatically. Foreground
+      mimics [NothingLess](https://github.com/leriart/NothingLess)'s
+      `Wallpaper.qml` + `VideoWallpaperService.qml` pattern; rendered inside
+      the `ApplicationWindow` because cxx-qt's `QQuickView` doesn't yet push
+      a `WlrLayershell` Background layer.
 - [ ] D-Bus daemon -- serve `org.freedesktop.Notifications` on the session bus
       so any `notify-send` lands in the `Notifier` queue (architecture in place,
       `dbus`-crate binding held back until we wire a response message that matches
       the spec)
 - [ ] Wire `Palette` colors into more Tokens (font, borders, danger/success) so
       every chrome surface paints with the wallpaper-derived palette
+- [ ] **Wayland layer-shell rendering** -- paint the wallpaper at the
+      `WlrLayer.Background` compositor layer so it shows when the shell window
+      is unfocused. Requires switching from `QGuiApplication` + `QQmlApplicationEngine`
+      to a `Quickshell`-like layer-shell host (or hand-rolling
+      `zwlr-layer-shell-v1` bindings).
 - [ ] Theme engine with `matugen` integration (DPI scaling, Material You extras)
 - [ ] Settings panel + per-screen overrides
 - [ ] Snapshot/restore for game and focus modes

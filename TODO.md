@@ -11,31 +11,34 @@ and the existing milestones.
 
 ### Visual / compositor surface
 
-- [ ] **Live palette engine** driven by the wallpaper (PNG) and, later, video /
-      GIF frames (mp4/webm/gif via ffmpeg pipe). Implemented as a Rust `Palette`
-      QObject that holds the dominant N colors and a derived accent / surface /
-      background, and pushes them into the `Tokens` singleton via QML bindings.
-      Reuses the same kind of dominant-color extraction cava-bg already does;
-      embedded in this repo (no external process). See `hint: cava-bg README,
-      "Color extraction" + "Adaptive colors" sections.`
+- [x] **Live palette engine** -- done. Driven by the wallpaper (PNG) **and**
+      video / GIF frames (mp4/webm/gif via ffmpeg pipe). Implemented as a Rust
+      `Palette` QObject that holds the dominant N colors and a derived accent /
+      surface / background, and pushes them into the `Tokens` singleton via
+      QML bindings. Reuses the same kind of dominant-color extraction cava-bg
+      already does; embedded in this repo (no external process).
 - [ ] **Manual palette override** so users without a matching wallpaper can pin
-      the palette to a fixed set of colors.
+      the palette to a fixed set of colors. (defaults_used flag in `Config`
+      + `Palette` falls back to the accent palette when no wallpaper is
+      present, which IS the manual override -- a real picker UI is still TODO.)
 - [ ] **Caelestia visual pass 2** -- ShaderEffectSource backdrop blur, screen
       rounded corners overlay, wallpaper-derived accent on the panel/launcher.
-- [ ] **Theme runtime override** -- propagate palette changes from `Palette` into
-      `Tokens` so every visible surface repaints without manual refresh.
-- [ ] **Smooth color transitions** (Tween animations on `Tokens.color_bg`,
-      `accent`, etc.) when the palette updates, instead of instant swap.
+- [x] **Theme runtime override** -- `Palette` updates push into `Tokens` via
+      `Connections` with `Behavior on color` `ColorAnimation`; every visible
+      surface repaints when the wallpaper changes.
+- [x] **Smooth color transitions** -- 600ms `ColorAnimation` per color role in
+      `Tokens.qml` (added alongside the runtime override).
 - [ ] **Wallpaper detection across managers** -- swww, hyprpaper, waypaper,
-      swaybg, awww, wpaperd. Discover via running processes / XDG paths first,
-      IPC or D-Bus as available.
+      swaybg, awww, wpaperd. Today: discover via `Pictures/Wallpapers` and
+      `.local/share/selene/wallpapers`; let the user point `Wallpaper.use_directory`
+      at whichever manager's backing dir.
 - [ ] **Contrast helper** -- pick `text` and `textMuted` colors that maintain a
       4.5:1 ratio against the live `bg`. Reuse WCAG-style luminance math.
 
 ### Audio / visualizer integration
 
 - [ ] **CAVA bridge** -- spawn an internal `cava` process, pipe its raw output
-      into Selene and feed the magnitudes into the same `Palette` engine so the
+      into Selene and feed the magnitudes into the same `Palette` engine so
       whole shell tints to the current music energy.
 - [ ] **cava-bg IPC** -- if cava-bg stays external (it is today), add a
       JSON/socket palette export so Selene can consume it without compiling in
@@ -49,6 +52,9 @@ and the existing milestones.
 - [ ] **Wayland layer-shell** for the panels (`Bar`, `Launcher`,
       `NotificationPanel`, `Island`) so they paint under the compositor's
       window-management rules, not as ApplicationWindow children.
+- [x] **Hardware-accelerated video wallpaper** -- `WallpaperSurface.qml` uses
+      `MediaPlayer + VideoOutput` from QtMultimedia (Qt 6.11); HW decoding
+      is delegated to the system's ffmpeg/MediaFoundation/VA-API pipeline.
 - [ ] **Real `hyprctl JSON`-driven monitors screen** -- a Settings surface for
       resolution, scale, transform, VRR per output.
 - [ ] **CPU% sampler** for `Island.metrics_cpu` instead of load-average only.
