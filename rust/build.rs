@@ -10,6 +10,8 @@ fn main() {
         "qml/Launcher.qml".into(),
         "qml/NotificationPanel.qml".into(),
         "qml/WallpaperSurface.qml".into(),
+        "qml/WallpaperPicker.qml".into(),
+        "qml/SettingsPanel.qml".into(),
     ];
 
     let qml_resources = QResources::new()
@@ -30,6 +32,12 @@ fn main() {
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/WallpaperSurface.qml").alias("qml/WallpaperSurface.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/WallpaperPicker.qml").alias("qml/WallpaperPicker.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/SettingsPanel.qml").alias("qml/SettingsPanel.qml"),
         ));
 
     CxxQtBuilder::new_qml_module(

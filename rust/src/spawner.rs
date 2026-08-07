@@ -1,5 +1,4 @@
 use core::pin::Pin;
-use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -45,7 +44,9 @@ pub struct SpawnerRust {
 struct DesktopEntry {
     name: String,
     exec: String,
+    icon: String,
     nodisplay: bool,
+    terminal: bool,
 }
 
 struct BuiltinAction {
@@ -151,8 +152,11 @@ fn apps_to_json(apps: &[DesktopEntry]) -> String {
             out.push(',');
         }
         out.push_str(&json_escape(&format!(
-            "{{\"label\":\"{}\",\"exec\":\"{}\"}}",
-            entry.name, entry.exec
+            "{{\"label\":\"{}\",\"exec\":\"{}\",\"icon\":\"{}\",\"terminal\":{}}}",
+            entry.name,
+            entry.exec,
+            entry.icon,
+            if entry.terminal { "true" } else { "false" }
         )));
     }
     out.push(']');
@@ -240,7 +244,10 @@ fn parse_desktop(path: &Path) -> Option<DesktopEntry> {
     let mut in_entry = false;
     let mut name = None;
     let mut exec = None;
+    let mut icon = String::new();
     let mut nodisplay = false;
+    let mut terminal = false;
+    let mut try_exec: Option<String> = None;
 
     for raw in content.lines() {
         let line = raw.trim();
@@ -259,33 +266,85 @@ fn parse_desktop(path: &Path) -> Option<DesktopEntry> {
                 name = Some(v.to_string());
             }
         } else if let Some(v) = line.strip_prefix("Exec=") {
-            exec = Some(clean_exec(v));
+            exec = Some(expand_field_codes(v));
+        } else if let Some(v) = line.strip_prefix("Icon=") {
+            icon = v.to_string();
         } else if let Some(v) = line.strip_prefix("NoDisplay=") {
             nodisplay = v.trim().eq_ignore_ascii_case("true");
+        } else if let Some(v) = line.strip_prefix("Terminal=") {
+            terminal = v.trim().eq_ignore_ascii_case("true");
+        } else if let Some(v) = line.strip_prefix("TryExec=") {
+            try_exec = Some(v.trim().to_string());
+        }
+    }
+
+    // TryExec preflight: skip the entry when the named binary isn't resolvable
+    // on PATH (the .desktop spec says launchers MUST NOT show the entry).
+    if let Some(bin) = try_exec {
+        if !binary_on_path(&bin) {
+            return None;
         }
     }
 
     Some(DesktopEntry {
         name: name?,
         exec: exec?,
+        icon,
         nodisplay,
+        terminal,
     })
 }
 
-fn clean_exec(raw: &str) -> String {
-    let mut cleaned = String::new();
-    let mut first = true;
-    for token in raw.split_whitespace() {
-        if token.starts_with('%') {
+fn binary_on_path(bin: &str) -> bool {
+    if bin.contains('/') {
+        return Path::new(bin).exists();
+    }
+    let Some(path_var) = std::env::var_os("PATH") else {
+        return false;
+    };
+    for dir in std::env::split_paths(&path_var) {
+        if dir.join(bin).exists() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Expand freedesktop .desktop field codes. Spec:
+/// https://specifications.freedesktop.org/desktop-entry-spec/latest/ar01s07.html
+/// We launch without file arguments, so %f/%F/%u/%U drop out entirely.
+/// %i expands to the icon (left empty here), %c to the (translated) name,
+/// %k to the desktop file location (left empty), %% is a literal percent.
+fn expand_field_codes(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut chars = raw.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            out.push(c);
             continue;
         }
-        if !first {
-            cleaned.push(' ');
+        match chars.next() {
+            Some('%') => out.push('%'),
+            Some('f') | Some('F') | Some('u') | Some('U') => {
+                // File/URL placeholders -- we don't pass files, drop them
+                // (and a following space if the token was "%u " style).
+            }
+            Some('i') | Some('c') | Some('k') => {
+                // Icon / name / location -- safe to drop for our launcher.
+            }
+            Some(other) => {
+                // Deprecated codes (%d %D %n %N %v %m) -- drop silently.
+                // Unknown codes: also drop, spec says they're reserved.
+                let _ = other;
+            }
+            None => {
+                // Trailing lone %, keep as-is.
+                out.push('%');
+            }
         }
-        cleaned.push_str(token);
-        first = false;
     }
-    cleaned
+    // Collapse whitespace left behind by dropped tokens.
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn spawn_command(exec: &QString) -> i32 {
@@ -300,7 +359,12 @@ fn spawn_command_owned(exec: &str) -> i32 {
     let Some((first, rest)) = parts.split_first() else {
         return -1;
     };
-    match Command::new(first)
+    // setsid: detach the child into its own session so it outlives the shell
+    // process and doesn't receive our signal group. Mirrors what every
+    // production launcher (rofi, fuzzel, walker) does.
+    match Command::new("setsid")
+        .arg("--fork")
+        .arg(first)
         .args(rest)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -308,6 +372,19 @@ fn spawn_command_owned(exec: &str) -> i32 {
         .spawn()
     {
         Ok(child) => child.id() as i32,
-        Err(_) => -1,
+        Err(_) => {
+            // setsid missing (unlikely on util-linux systems); fall back to a
+            // plain spawn so the launcher still works.
+            match Command::new(first)
+                .args(rest)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+            {
+                Ok(child) => child.id() as i32,
+                Err(_) => -1,
+            }
+        }
     }
 }

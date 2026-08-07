@@ -9,6 +9,7 @@ Rectangle {
 
     property var bridge: null
     property var launcher: null
+    property var island: null
 
     height: Tokens.barHeight
     radius: Tokens.radiusMd
@@ -162,6 +163,41 @@ Rectangle {
                 color: bridge && bridge.connected ? Tokens.success : Tokens.textDim
                 font.family: Tokens.monoFamily
                 font.pixelSize: Tokens.fontXs
+            }
+        }
+
+        Rectangle {
+            visible: island && island.battery_present
+            Layout.preferredHeight: Tokens.chipSize - 6
+            Layout.preferredWidth: 56
+            radius: Tokens.radiusSm
+            color: Tokens.surfaceAlt
+            border.color: island && island.battery_percent <= 15 ? Tokens.danger : Tokens.border
+            border.width: 1
+
+            Label {
+                anchors.centerIn: parent
+                text: island ? String(island.battery_percent) + "%" : ""
+                color: island && island.battery_percent <= 15 ? Tokens.danger : Tokens.text
+                font.family: Tokens.monoFamily
+                font.pixelSize: Tokens.fontSm
+            }
+        }
+
+        Rectangle {
+            Layout.preferredHeight: Tokens.chipSize - 6
+            Layout.preferredWidth: 62
+            radius: Tokens.radiusSm
+            color: Tokens.surfaceAlt
+            border.color: Tokens.border
+            border.width: 1
+
+            Label {
+                anchors.centerIn: parent
+                text: island ? island.time_hhmm : "--:--"
+                color: Tokens.text
+                font.family: Tokens.monoFamily
+                font.pixelSize: Tokens.fontSm
             }
         }
     }

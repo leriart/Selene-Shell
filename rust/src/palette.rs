@@ -241,6 +241,42 @@ fn to_hex(rgb: [u8; 3]) -> String {
     format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2])
 }
 
+/// WCAG 2.x contrast ratio between two colors, in the range [1, 21].
+fn contrast_ratio(a: [u8; 3], b: [u8; 3]) -> f32 {
+    let la = relative_luminance(a);
+    let lb = relative_luminance(b);
+    let (lighter, darker) = if la >= lb { (la, lb) } else { (lb, la) };
+    (lighter + 0.05) / (darker + 0.05)
+}
+
+/// Pick a foreground color that reaches at least 4.5:1 against `bg` when
+/// possible. We try a small ladder of near-white / near-black candidates and
+/// return the first that passes; if none do, return the best-scoring one.
+fn pick_text_color(bg: [u8; 3]) -> [u8; 3] {
+    const CANDIDATES: &[[u8; 3]] = &[
+        [230, 230, 234],
+        [244, 244, 248],
+        [255, 255, 255],
+        [32, 34, 40],
+        [20, 22, 28],
+        [10, 11, 14],
+        [0, 0, 0],
+    ];
+    let mut best = CANDIDATES[0];
+    let mut best_ratio = 0.0_f32;
+    for &c in CANDIDATES {
+        let r = contrast_ratio(c, bg);
+        if r >= 4.5 {
+            return c;
+        }
+        if r > best_ratio {
+            best_ratio = r;
+            best = c;
+        }
+    }
+    best
+}
+
 fn derive_roles(dominant: &[DominantColor]) -> (String, String, String, String) {
     if dominant.is_empty() {
         let fallback = "#a78bfa".to_string();
@@ -261,11 +297,7 @@ fn derive_roles(dominant: &[DominantColor]) -> (String, String, String, String) 
     }
     let surface_rgb = mix(bg_rgb, [255, 255, 255], 0.06);
 
-    let text_rgb = if relative_luminance(bg_rgb) < 0.4 {
-        [230, 230, 234]
-    } else {
-        [20, 22, 28]
-    };
+    let text_rgb = pick_text_color(bg_rgb);
 
     (accent, to_hex(surface_rgb), to_hex(bg_rgb), to_hex(text_rgb))
 }

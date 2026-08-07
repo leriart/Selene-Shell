@@ -107,6 +107,15 @@ ApplicationWindow {
     }
 
     Timer {
+        // Island metrics tick: /proc + /sys reads, clock, MPRIS metadata.
+        // 2s cadence so CPU% deltas stay meaningful.
+        interval: 2000
+        running: true
+        repeat: true
+        onTriggered: islandBackend.refresh()
+    }
+
+    Timer {
         // Slow fallback refresh; the Rust event listener pushes real updates
         // through the cxx-qt queued bridge, this is just a safety net in case
         // an event slips through (or we started without a Hyprland session).
@@ -126,6 +135,7 @@ ApplicationWindow {
             Layout.fillWidth: true
             bridge: bridge
             launcher: launcher
+            island: islandBackend
         }
 
         IslandPill {
@@ -148,6 +158,66 @@ ApplicationWindow {
                 columns: 2
                 columnSpacing: Tokens.spacingLg
                 rowSpacing: Tokens.spacingSm
+
+                Label {
+                    text: "cpu"
+                    color: Tokens.textMuted
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontSm
+                }
+                Label {
+                    text: islandBackend.cpu_percent.toFixed(1) + "%  (load " +
+                          islandBackend.load_avg_1.toFixed(2) + ")"
+                    color: Tokens.text
+                    font.family: Tokens.monoFamily
+                    font.pixelSize: Tokens.fontMd
+                }
+
+                Label {
+                    text: "ram"
+                    color: Tokens.textMuted
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontSm
+                }
+                Label {
+                    text: islandBackend.ram_used_mb + " / " + islandBackend.ram_total_mb + " MB"
+                    color: Tokens.text
+                    font.family: Tokens.monoFamily
+                    font.pixelSize: Tokens.fontMd
+                }
+
+                Label {
+                    text: "battery"
+                    color: Tokens.textMuted
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontSm
+                }
+                Label {
+                    text: islandBackend.battery_present
+                          ? (islandBackend.battery_percent + "%  " + islandBackend.battery_status)
+                          : "none"
+                    color: Tokens.text
+                    font.family: Tokens.monoFamily
+                    font.pixelSize: Tokens.fontMd
+                }
+
+                Label {
+                    text: "media"
+                    color: Tokens.textMuted
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontSm
+                }
+                Label {
+                    Layout.fillWidth: true
+                    text: (islandBackend.media_playing ? "> " : "|| ") +
+                          islandBackend.media_title + " - " + islandBackend.media_artist +
+                          (islandBackend.media_player.length > 0
+                           ? "  [" + islandBackend.media_player + "]" : "")
+                    color: Tokens.text
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontSm
+                    elide: Text.ElideRight
+                }
 
                 Label {
                     text: "active workspace"
@@ -317,6 +387,14 @@ ApplicationWindow {
                 onClicked: notifierPanel.toggle()
             }
             Button {
+                text: "Walls"
+                onClicked: wallpaperPicker.toggle()
+            }
+            Button {
+                text: "Settings"
+                onClicked: settingsPanel.toggle()
+            }
+            Button {
                 text: "Quit"
                 onClicked: Qt.quit()
             }
@@ -347,5 +425,21 @@ ApplicationWindow {
         anchors.fill: parent
         z: 1100
         notifier: notifierBackend
+    }
+
+    WallpaperPicker {
+        id: wallpaperPicker
+        anchors.fill: parent
+        z: 1200
+        wallpaper: wallpaperBackend
+        Keys.onEscapePressed: wallpaperPicker.close()
+    }
+
+    SettingsPanel {
+        id: settingsPanel
+        anchors.fill: parent
+        z: 1300
+        config: configBackend
+        Keys.onEscapePressed: settingsPanel.close()
     }
 }
