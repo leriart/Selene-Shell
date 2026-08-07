@@ -368,6 +368,10 @@ event-driven pipeline is live; the rest of the HUD is being ported.
       survive `init.lua` reloads and persist edits back to disk.
 - [x] **Inotify hot-reload of init.lua** via `notify` + cxx_qt queue.
 - [x] **`selene doctor`** -- prints per-binary / per-config diagnostics.
+- [x] **Audio QObject** -- `Audio` exposes `volume_percent`, `muted`,
+      `default_sink_name`, `sinks_json` and `set_volume / bump / toggle_mute
+      / set_default_sink` qinvokables. `AudioPanel.qml` is the Quick Settings
+      surface with a slider, mute toggle, ± buttons, and a sink list.
 - [x] **Wallpaper picker UI** -- `WallpaperPicker.qml` thumbnail grid,
       prev/next/rescan, click-to-pick. `Ctrl+Alt+Left/Right` cycle through
       the wallpapers from anywhere.

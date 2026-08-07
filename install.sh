@@ -60,7 +60,8 @@ install_deps() {
         cmake ninja gcc \
         rust cargo \
         git base-devel \
-        lua54 ffmpeg
+        lua54 ffmpeg playerctl \
+        pipewire pipewire-pulse
       ;;
     fedora)
       log "Detected Fedora. Installing build dependencies via dnf..."
@@ -69,7 +70,8 @@ install_deps() {
         cmake ninja-build gcc gcc-c++ \
         rust cargo \
         git \
-        lua-devel ffmpeg ffmpeg-devel
+        lua-devel ffmpeg ffmpeg-devel playerctl \
+        pipewire pipewire-pulseaudio
       ;;
     nixos)
       log "Detected NixOS. Use the Selene flake for a fully reproducible build:"

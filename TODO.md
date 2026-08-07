@@ -65,8 +65,13 @@ and the existing milestones.
       on each 2s tick and diffs against the previous sample (classic
       (totald - idled) / totald). Also battery via
       `/sys/class/power_supply/*/capacity` and a clock property.
-- [ ] **Network / Bluetooth / Audio** QObjects so the Quick Settings surface
-      has real data.
+- [x] **Audio QObject** -- `Audio.refresh()` lists sinks via `pactl list sinks`,
+      `Audio.set_volume` / `toggle_mute` / `set_default_sink` /
+      `bump(±%)` write back to pactl. `AudioPanel.qml` is the Quick
+      Settings surface: slider, mute toggle, +/- buttons, sink list.
+      Refreshes every 5s via a QML Timer.
+- [ ] **Network / Bluetooth** QObjects so the Quick Settings surface has
+      real data.
 
 ### Notifications
 
@@ -160,6 +165,8 @@ Shipped in chronological order (newest at top).
 - [x] **Inotify hot-reload of init.lua** via `notify` + cxx_qt queue. 2026-08-07.
 - [x] **`selene doctor`** -- new subcommand printing a per-binary /
       per-config diagnostic. 2026-08-07.
+- [x] **Audio QObject + AudioPanel** -- pactl-backed volume/mute/sinks
+      listing with a slider and the default sink selector. 2026-08-07.
 - [x] **Launcher spec compliance** -- field-code expansion, `TryExec`
       preflight, `setsid --fork` detached spawn, icon/terminal in apps_json.
       2026-08-07.
