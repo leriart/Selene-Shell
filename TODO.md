@@ -70,8 +70,13 @@ and the existing milestones.
       `bump(±%)` write back to pactl. `AudioPanel.qml` is the Quick
       Settings surface: slider, mute toggle, +/- buttons, sink list.
       Refreshes every 5s via a QML Timer.
-- [ ] **Network / Bluetooth** QObjects so the Quick Settings surface has
-      real data.
+- [x] **Network QObject** -- `Network` exposes wifi state + nearby
+      networks, active connection + IPv4, and `wifi_on / wifi_off /
+      connect_ssid / disconnect` qinvokables. `NetworkPanel.qml` is the
+      Quick Settings surface with a toggle, an active-connection card,
+      and a click-to-connect wifi list.
+- [ ] **Bluetooth QObject** so the Quick Settings surface has BT data
+      (rfkill / bluetoothctl subprocess poll).
 
 ### Notifications
 
@@ -167,6 +172,13 @@ Shipped in chronological order (newest at top).
       per-config diagnostic. 2026-08-07.
 - [x] **Audio QObject + AudioPanel** -- pactl-backed volume/mute/sinks
       listing with a slider and the default sink selector. 2026-08-07.
+- [x] **Network QObject + NetworkPanel** -- nmcli-backed wifi + connection
+      manager with toggle, active connection card, and click-to-connect
+      wifi list. 2026-08-07.
+- [x] **Theme runtime override** (extended) -- font_family / theme_accent /
+      theme_background / theme_surface from Config now flow into Tokens
+      live, so a Settings panel edit or a reloaded init.lua immediately
+      re-themes the whole shell. 2026-08-07.
 - [x] **Launcher spec compliance** -- field-code expansion, `TryExec`
       preflight, `setsid --fork` detached spawn, icon/terminal in apps_json.
       2026-08-07.

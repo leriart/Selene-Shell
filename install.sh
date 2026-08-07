@@ -61,7 +61,8 @@ install_deps() {
         rust cargo \
         git base-devel \
         lua54 ffmpeg playerctl \
-        pipewire pipewire-pulse
+        pipewire pipewire-pulse \
+        networkmanager bluez bluez-utils
       ;;
     fedora)
       log "Detected Fedora. Installing build dependencies via dnf..."
@@ -71,7 +72,8 @@ install_deps() {
         rust cargo \
         git \
         lua-devel ffmpeg ffmpeg-devel playerctl \
-        pipewire pipewire-pulseaudio
+        pipewire pipewire-pulseaudio \
+        NetworkManager bluez
       ;;
     nixos)
       log "Detected NixOS. Use the Selene flake for a fully reproducible build:"

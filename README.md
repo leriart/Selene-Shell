@@ -372,6 +372,16 @@ event-driven pipeline is live; the rest of the HUD is being ported.
       `default_sink_name`, `sinks_json` and `set_volume / bump / toggle_mute
       / set_default_sink` qinvokables. `AudioPanel.qml` is the Quick Settings
       surface with a slider, mute toggle, ± buttons, and a sink list.
+- [x] **Network QObject** -- `Network` exposes `wifi_enabled`, `connected`,
+      `active_name`, `active_ssid`, `active_signal`, `ipv4`, `wifi_json`,
+      `ifaces_json`, and `wifi_on / wifi_off / connect_ssid / disconnect`
+      qinvokables. `NetworkPanel.qml` is the Quick Settings surface with a
+      toggle, an active-connection card, IPv4, and a click-to-connect wifi
+      list (signal bars + 🔒 flags).
+- [x] **Theme runtime override (extended)** -- `font_family / theme_accent
+      / theme_background / theme_surface` from `Config` now flow into
+      `Tokens` live, so a Settings panel edit or a reloaded init.lua
+      immediately re-themes the whole shell.
 - [x] **Wallpaper picker UI** -- `WallpaperPicker.qml` thumbnail grid,
       prev/next/rescan, click-to-pick. `Ctrl+Alt+Left/Right` cycle through
       the wallpapers from anywhere.
