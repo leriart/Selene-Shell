@@ -31,7 +31,7 @@ if(NOT CxxQt_FOUND)
 endif()
 
 cxx_qt_import_crate(
-    MANIFEST_PATH rust/Cargo.toml
+    MANIFEST_PATH crates/selene-shell/Cargo.toml
     CRATES selene_shell
     LOCKED
     QT_MODULES Qt::Core Qt::Gui Qt::Qml Qt::Quick Qt::Multimedia Qt::QuickControls2 Qt::QuickTemplates2
@@ -42,7 +42,7 @@ cxx_qt_import_qml_module(selene_shell_qml_module
     SOURCE_CRATE selene_shell
 )
 
-add_executable(selene-shell cpp/main.cpp)
+add_executable(selene-shell src/main.cpp)
 target_link_libraries(selene-shell PRIVATE selene_shell_qml_module)
 
 # mlua embeds Lua via pkg-config; propagate that link to the C++ executable

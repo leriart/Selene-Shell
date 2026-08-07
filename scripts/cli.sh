@@ -8,7 +8,8 @@ set -euo pipefail
 
 if [[ -z "${SELENE_SRC:-}" ]]; then
   SCRIPT_PATH="$(realpath -e "$0" 2>/dev/null || python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$0")"
-  SELENE_SRC="$(dirname "$SCRIPT_PATH")"
+  # `cli.sh` lives in <repo>/scripts/, so the repo root is one directory up.
+  SELENE_SRC="$(dirname "$(dirname "$SCRIPT_PATH")")"
 fi
 SELENE_BUILD="${SELENE_BUILD:-$SELENE_SRC/build}"
 SELENE_SHARE="${SELENE_SHARE:-$HOME/.local/share/selene}"
@@ -65,7 +66,7 @@ cmd_quit() {
 cmd_update() {
   cd "$SELENE_SRC"
   git pull --ff-only
-  cargo generate-lockfile --manifest-path rust/Cargo.toml || true
+  cargo generate-lockfile --manifest-path crates/selene-shell/Cargo.toml || true
   cmake --build build
 }
 

@@ -6,7 +6,9 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 .qmlls.ini
-rust/target/
+crates/selene-shell/target/
+crates/selene-shell/.qmlls.ini
+/docs/
 
 # Qt
 *.user

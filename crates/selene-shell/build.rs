@@ -17,6 +17,9 @@ fn main() {
         "qml/BluetoothPanel.qml".into(),
     ];
 
+    // QML files are listed here so they get compiled into the binary's
+    // resource bundle (qrc) and resolve at qrc:/qml/Foo.qml without a
+    // runtime filesystem dependency.
     let qml_resources = QResources::new()
         .resource(QResource::new().file(
             QResourceFile::new("qml/Tokens.qml").alias("qml/Tokens.qml"),
@@ -31,7 +34,8 @@ fn main() {
             QResourceFile::new("qml/Launcher.qml").alias("qml/Launcher.qml"),
         ))
         .resource(QResource::new().file(
-            QResourceFile::new("qml/NotificationPanel.qml").alias("qml/NotificationPanel.qml"),
+            QResourceFile::new("qml/NotificationPanel.qml")
+                .alias("qml/NotificationPanel.qml"),
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/WallpaperSurface.qml").alias("qml/WallpaperSurface.qml"),
@@ -50,6 +54,13 @@ fn main() {
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/BluetoothPanel.qml").alias("qml/BluetoothPanel.qml"),
+        ))
+        // Bundled assets -- the .qml side references them as qrc:/assets/*.
+        .resource(QResource::new().file(
+            QResourceFile::new("../../assets/logo-dark.png").alias("assets/logo-dark.png"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("../../assets/logo-white.png").alias("assets/logo-white.png"),
         ));
 
     CxxQtBuilder::new_qml_module(

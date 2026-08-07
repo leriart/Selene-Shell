@@ -1,9 +1,9 @@
 [package]
 name = "selene_shell"
-version = "0.1.0"
-edition = "2024"
-license = "Apache-2.0"
-description = "Selene -- a QML shell for Hyprland, written in Rust"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description.workspace = true
 publish = false
 
 [lib]

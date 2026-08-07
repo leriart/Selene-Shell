@@ -1,6 +1,16 @@
 # Selene-Shell
 
-A QML shell for Hyprland. Light as moonlight, solid as Rust.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-white.png" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/logo-dark.png" />
+    <img alt="Selene shell" src="assets/logo-dark.png" width="220" />
+  </picture>
+</p>
+
+<p align="center">
+  <em>A QML shell for Hyprland. Light as moonlight, solid as Rust.</em>
+</p>
 
 Selene is a modern, visually refined shell for [Hyprland](https://hyprland.org) and the
 spiritual successor to [NothingLess](https://github.com/leriart/NothingLess). Its user
@@ -27,6 +37,38 @@ Selene fuses the best parts of three projects into one coherent whole:
 Visually Selene tips its hat to both -- Caelestia's glassy overlay shell with
 NothingLess's Ndot accent (dot-matrix monospace, monochrome with a single accent
 pop) and tight material curves.
+
+---
+
+## Project layout
+
+A small Cargo workspace keeps the layout self-explanatory:
+
+```
+selene-shell/
+├── Cargo.toml                workspace root
+├── CMakeLists.txt            links the cxx-qt crate at crates/selene-shell
+├── src/
+│   └── main.cpp              executable entry point
+├── crates/
+│   └── selene-shell/         the Rust crate (QObject definitions)
+│       ├── Cargo.toml
+│       ├── build.rs          qml/ + asset registration
+│       ├── src/              10 QObjects (Bridge, Spawner, ...)
+│       └── qml/              11 QML components (Bar, Launcher, ...)
+├── assets/                   logos (light + dark variants)
+├── scripts/
+│   ├── install.sh            one-shot installer
+│   └── cli.sh                `selene` command dispatcher
+├── docs/                     per-surface notes
+├── README.md
+├── TODO.md
+└── LICENSE
+```
+
+The QML files are co-located with the Rust crate that registers them. The
+logos are bundled into the binary via `qrc` so the shell runs without a
+filesystem dependency on its assets.
 
 ---
 
@@ -193,7 +235,7 @@ git clone https://github.com/leriart/selene-shell
 cd selene-shell
 
 # One-time: pin the Rust dependency graph
-cargo generate-lockfile --manifest-path rust/Cargo.toml
+cargo generate-lockfile --manifest-path crates/selene-shell/Cargo.toml
 
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
@@ -307,8 +349,8 @@ event-driven pipeline is live; the rest of the HUD is being ported.
 - [x] Hyprland IPC connection (`hyprland-rs`, push-based via event listener +
       `cxx_qt::CxxQtThread` queued calls back to the Qt main thread)
 - [x] Ambxst-style non-invasive installer + `selene` CLI surface
-- [x] Design tokens (`rust/qml/Tokens.qml` singleton) + mock `Bar.qml` driven by
-      live `Bridge` properties
+- [x] Design tokens (`crates/selene-shell/qml/Tokens.qml` singleton) + mock
+      `Bar.qml` driven by live `Bridge` properties
 - [x] Launcher overlay (Hax-style) backed by a `Spawner` QObject that enumerates
       `/usr/share/applications` and exposes `launch(exec)` / `run_action(label)`
       qinvokables
@@ -378,6 +420,12 @@ event-driven pipeline is live; the rest of the HUD is being ported.
       qinvokables. `NetworkPanel.qml` is the Quick Settings surface with a
       toggle, an active-connection card, IPv4, and a click-to-connect wifi
       list (signal bars + 🔒 flags).
+- [x] **Bluetooth QObject** -- `Bluetooth` parses `bluetoothctl show / list
+      / devices -v`, exposes `powered / discoverable / adapter_name /
+      adapter_mac / devices_json`, and `power_on / power_off / toggle /
+      connect_device / disconnect_device / pair_device` qinvokables.
+      `BluetoothPanel.qml` is the Quick Settings surface with a switch
+      and a click-to-(pair|connect|disconnect) device list.
 - [x] **Theme runtime override (extended)** -- `font_family / theme_accent
       / theme_background / theme_surface` from `Config` now flow into
       `Tokens` live, so a Settings panel edit or a reloaded init.lua

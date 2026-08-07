@@ -213,7 +213,7 @@ Shipped in chronological order (newest at top).
       `~/.local/bin/selene` symlink, marker-based `hyprland.conf` integration).
 - [x] **Hyprland IPC via `hyprland-rs`** -- 1Hz polling + 10 properties.
 - [x] **Skeleton** -- cxx-qt + CMake + Corrosion + CMakeLists.txt + QML
-      module + cpp/main.cpp.
+      module + src/main.cpp.
 - [x] **README rewrite** with lineage / philosophy / stack / features /
       milestones sections.
 

@@ -10,7 +10,18 @@
 # Layout produced:
 #   ~/.local/src/selene-shell/      repo source
 #   ~/.local/share/selene/          generated data (hyprland config, state)
-#   ~/.local/bin/selene             symlink to <src>/cli.sh
+#   ~/.local/bin/selene             symlink to <src>/scripts/cli.sh
+#
+# Repo layout (post-reorganize):
+#   <src>/Cargo.toml                workspace root
+#   <src>/CMakeLists.txt            links cxx-qt crate at crates/selene-shell
+#   <src>/src/main.cpp              executable entry point
+#   <src>/crates/selene-shell/      the Rust crate (QObject definitions)
+#       <src>/crates/selene-shell/qml/   QML files co-located with the crate
+#       <src>/crates/selene-shell/src/   Rust source files
+#   <src>/assets/                   logos / branding
+#   <src>/scripts/                  install.sh + cli.sh
+#   <src>/docs/                     architecture / per-surface notes
 
 set -euo pipefail
 
@@ -112,7 +123,7 @@ clone_or_update() {
 
 build_selene() {
   log "Generating Cargo dependency lockfile..."
-  ( cd "$SELENE_SRC" && cargo generate-lockfile --manifest-path rust/Cargo.toml )
+  ( cd "$SELENE_SRC" && cargo generate-lockfile --manifest-path crates/selene-shell/Cargo.toml )
   log "Configuring CMake build (Release)..."
   ( cd "$SELENE_SRC" && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release )
   log "Building selene-shell (this may take a while on first build)..."
@@ -125,10 +136,10 @@ install_cli() {
   local target="$SELENE_BIN_DIR/selene"
   if [[ -e "$target" && ! -L "$target" ]]; then
     warn "$target exists and is not a symlink. Leaving it untouched."
-    warn "Run: ln -sf $SELENE_SRC/cli.sh $target"
+    warn "Run: ln -sf $SELENE_SRC/scripts/cli.sh $target"
     return 0
   fi
-  ln -sfn "$SELENE_SRC/cli.sh" "$target"
+  ln -sfn "$SELENE_SRC/scripts/cli.sh" "$target"
   ok "Installed CLI -> $target"
   if [[ ":$PATH:" != *":$SELENE_BIN_DIR:"* ]]; then
     warn "$SELENE_BIN_DIR is not in PATH for this shell."
