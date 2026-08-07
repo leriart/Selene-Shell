@@ -93,6 +93,12 @@ ApplicationWindow {
         Component.onCompleted: audioBackend.refresh()
     }
 
+    Network {
+        id: networkBackend
+
+        Component.onCompleted: networkBackend.refresh()
+    }
+
     Timer {
         interval: 5000
         running: true
@@ -118,6 +124,39 @@ ApplicationWindow {
         }
     }
 
+    Connections {
+        // Config-driven tokens: react to live changes from settings /
+        // hot-reloaded init.lua so the whole shell re-themes immediately.
+        target: configBackend
+        function onFont_familyChanged() {
+            if (configBackend.font_family && configBackend.font_family.length > 0)
+                Tokens.fontFamily = configBackend.font_family;
+        }
+        function onTheme_accentChanged() {
+            if (configBackend.theme_accent && configBackend.theme_accent.length > 0) {
+                Tokens.accent = configBackend.theme_accent;
+                // Override the palette's wallpaper-derived accent so the
+                // user-facing settings choice wins until the next refresh.
+                paletteBackend.set_source(paletteBackend.source_path);
+            }
+        }
+        function onTheme_backgroundChanged() {
+            if (configBackend.theme_background && configBackend.theme_background.length > 0)
+                Tokens.bg = configBackend.theme_background;
+        }
+        function onTheme_surfaceChanged() {
+            if (configBackend.theme_surface && configBackend.theme_surface.length > 0)
+                Tokens.surface = configBackend.theme_surface;
+        }
+    }
+
+    Component.onCompleted: {
+        // Seed the font family from the actual config (not the singleton's
+        // default) so the user's choice in init.lua always wins.
+        if (configBackend.font_family && configBackend.font_family.length > 0)
+            Tokens.fontFamily = configBackend.font_family;
+    }
+
     Timer {
         // Island metrics tick: /proc + /sys reads, clock, MPRIS metadata.
         // 2s cadence so CPU% deltas stay meaningful.
@@ -134,6 +173,15 @@ ApplicationWindow {
         running: true
         repeat: true
         onTriggered: audioBackend.refresh()
+    }
+
+    Timer {
+        // Network state poll: signal / re-association can change without a
+        // notifiable event; poll every 15s to keep the quick settings honest.
+        interval: 15000
+        running: true
+        repeat: true
+        onTriggered: networkBackend.refresh()
     }
 
     Timer {
@@ -420,6 +468,10 @@ ApplicationWindow {
                 onClicked: audioPanel.toggle()
             }
             Button {
+                text: "Net"
+                onClicked: networkPanel.toggle()
+            }
+            Button {
                 text: "Quit"
                 onClicked: Qt.quit()
             }
@@ -482,5 +534,13 @@ ApplicationWindow {
         z: 1400
         audio: audioBackend
         Keys.onEscapePressed: audioPanel.close()
+    }
+
+    NetworkPanel {
+        id: networkPanel
+        anchors.fill: parent
+        z: 1500
+        network: networkBackend
+        Keys.onEscapePressed: networkPanel.close()
     }
 }

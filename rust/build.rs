@@ -13,6 +13,7 @@ fn main() {
         "qml/WallpaperPicker.qml".into(),
         "qml/SettingsPanel.qml".into(),
         "qml/AudioPanel.qml".into(),
+        "qml/NetworkPanel.qml".into(),
     ];
 
     let qml_resources = QResources::new()
@@ -42,6 +43,9 @@ fn main() {
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/AudioPanel.qml").alias("qml/AudioPanel.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/NetworkPanel.qml").alias("qml/NetworkPanel.qml"),
         ));
 
     CxxQtBuilder::new_qml_module(
@@ -54,6 +58,7 @@ fn main() {
         "src/bridge.rs",
         "src/config.rs",
         "src/island.rs",
+        "src/network.rs",
         "src/notifications.rs",
         "src/palette.rs",
         "src/spawner.rs",

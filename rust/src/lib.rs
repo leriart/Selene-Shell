@@ -2,6 +2,7 @@ pub mod audio;
 pub mod bridge;
 pub mod config;
 pub mod island;
+pub mod network;
 pub mod notifications;
 pub mod palette;
 pub mod spawner;

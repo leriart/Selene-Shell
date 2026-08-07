@@ -42,7 +42,7 @@ QtObject {
     readonly property int barMargin: 12
     readonly property int chipSize: 28
 
-    readonly property string fontFamily: "Inter, Sans-Serif"
+    property string fontFamily: "Inter, Sans-Serif"
     readonly property string monoFamily: "JetBrains Mono, monospace"
     readonly property int fontXs: 10
     readonly property int fontSm: 12
