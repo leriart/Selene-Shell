@@ -507,11 +507,8 @@ impl qobject::Config {
 
 fn watch_config(path: PathBuf, qt: cxx_qt::CxxQtThread<qobject::Config>) {
     use notify::Watcher;
+    use std::sync::mpsc;
     use std::time::Duration;
-
-    // Notify's recommended pattern: debounce events with a timeout poll.
-    let mut debounce = std::time::Instant::now();
-    let mut pending = false;
 
     let parent = path.parent().unwrap_or(&path).to_path_buf();
     let file_name = path
@@ -519,18 +516,19 @@ fn watch_config(path: PathBuf, qt: cxx_qt::CxxQtThread<qobject::Config>) {
         .map(|s| s.to_os_string())
         .unwrap_or_default();
 
-    let Ok(mut watcher) = notify::recommended_watcher(
-        move |res: notify::Result<notify::Event>| {
-            if let Ok(event) = res {
-                if event.paths.iter().any(|p| {
-                    p.file_name() == Some(&file_name)
-                }) {
-                    debounce = std::time::Instant::now();
-                    pending = true;
-                }
+    let (tx, rx) = mpsc::channel::<()>();
+
+    let Ok(mut watcher) = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+        if let Ok(event) = res {
+            if event
+                .paths
+                .iter()
+                .any(|p| p.file_name() == Some(&file_name))
+            {
+                let _ = tx.send(());
             }
-        },
-    ) else {
+        }
+    }) else {
         let _ = qt.queue(|mut c| {
             c.as_mut().set_status(QString::from("watcher: cannot create notifier"));
         });
@@ -550,16 +548,12 @@ fn watch_config(path: PathBuf, qt: cxx_qt::CxxQtThread<qobject::Config>) {
             .set_status(QString::from("watching init.lua for changes"));
     });
 
-    loop {
-        // The watcher must stay alive in the stack frame; the closure
-        // receives events on its own. We only need to time the debounce.
-        std::hint::black_box(&watcher);
-        if pending && debounce.elapsed() > Duration::from_millis(250) {
-            pending = false;
-            let _ = qt.queue(|mut c| {
-                c.as_mut().reload();
-            });
-        }
-        std::thread::sleep(Duration::from_millis(120));
+    // Debounce: collect events for 250ms then trigger one reload.
+    while rx.recv_timeout(Duration::from_millis(250)).is_ok() {
+        // Drain every event that arrives within the debounce window.
+        while rx.recv_timeout(Duration::from_millis(50)).is_ok() {}
+        let _ = qt.queue(|mut c| {
+            c.as_mut().reload();
+        });
     }
 }

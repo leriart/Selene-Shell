@@ -87,6 +87,12 @@ ApplicationWindow {
         Component.onCompleted: wallpaperBackend.refresh()
     }
 
+    Audio {
+        id: audioBackend
+
+        Component.onCompleted: audioBackend.refresh()
+    }
+
     Timer {
         interval: 5000
         running: true
@@ -119,6 +125,15 @@ ApplicationWindow {
         running: true
         repeat: true
         onTriggered: islandBackend.refresh()
+    }
+
+    Timer {
+        // Audio state poll: keep volume / mute fresh in case external apps
+        // (wpctl, media players) changed the sink underneath us.
+        interval: 5000
+        running: true
+        repeat: true
+        onTriggered: audioBackend.refresh()
     }
 
     Timer {
@@ -401,6 +416,10 @@ ApplicationWindow {
                 onClicked: settingsPanel.toggle()
             }
             Button {
+                text: "Audio"
+                onClicked: audioPanel.toggle()
+            }
+            Button {
                 text: "Quit"
                 onClicked: Qt.quit()
             }
@@ -455,5 +474,13 @@ ApplicationWindow {
         z: 1300
         config: configBackend
         Keys.onEscapePressed: settingsPanel.close()
+    }
+
+    AudioPanel {
+        id: audioPanel
+        anchors.fill: parent
+        z: 1400
+        audio: audioBackend
+        Keys.onEscapePressed: audioPanel.close()
     }
 }
