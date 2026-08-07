@@ -14,6 +14,7 @@ fn main() {
         "qml/SettingsPanel.qml".into(),
         "qml/AudioPanel.qml".into(),
         "qml/NetworkPanel.qml".into(),
+        "qml/BluetoothPanel.qml".into(),
     ];
 
     let qml_resources = QResources::new()
@@ -46,6 +47,9 @@ fn main() {
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/NetworkPanel.qml").alias("qml/NetworkPanel.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/BluetoothPanel.qml").alias("qml/BluetoothPanel.qml"),
         ));
 
     CxxQtBuilder::new_qml_module(
@@ -55,6 +59,7 @@ fn main() {
     .qrc_resources(qml_resources)
     .files([
         "src/audio.rs",
+        "src/bluetooth.rs",
         "src/bridge.rs",
         "src/config.rs",
         "src/island.rs",

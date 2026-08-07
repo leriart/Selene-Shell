@@ -99,6 +99,12 @@ ApplicationWindow {
         Component.onCompleted: networkBackend.refresh()
     }
 
+    Bluetooth {
+        id: bluetoothBackend
+
+        Component.onCompleted: bluetoothBackend.refresh()
+    }
+
     Timer {
         interval: 5000
         running: true
@@ -182,6 +188,15 @@ ApplicationWindow {
         running: true
         repeat: true
         onTriggered: networkBackend.refresh()
+    }
+
+    Timer {
+        // Bluetooth state poll: 20s is fine -- pairing / discovery usually
+        // last several seconds, and bluetoothctl is heavier than pactl.
+        interval: 20000
+        running: true
+        repeat: true
+        onTriggered: bluetoothBackend.refresh()
     }
 
     Timer {
@@ -472,6 +487,10 @@ ApplicationWindow {
                 onClicked: networkPanel.toggle()
             }
             Button {
+                text: "BT"
+                onClicked: bluetoothPanel.toggle()
+            }
+            Button {
                 text: "Quit"
                 onClicked: Qt.quit()
             }
@@ -542,5 +561,13 @@ ApplicationWindow {
         z: 1500
         network: networkBackend
         Keys.onEscapePressed: networkPanel.close()
+    }
+
+    BluetoothPanel {
+        id: bluetoothPanel
+        anchors.fill: parent
+        z: 1600
+        bluetooth: bluetoothBackend
+        Keys.onEscapePressed: bluetoothPanel.close()
     }
 }

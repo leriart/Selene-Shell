@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod bluetooth;
 pub mod bridge;
 pub mod config;
 pub mod island;
