@@ -75,8 +75,12 @@ and the existing milestones.
       connect_ssid / disconnect` qinvokables. `NetworkPanel.qml` is the
       Quick Settings surface with a toggle, an active-connection card,
       and a click-to-connect wifi list.
-- [ ] **Bluetooth QObject** so the Quick Settings surface has BT data
-      (rfkill / bluetoothctl subprocess poll).
+- [x] **Bluetooth QObject** -- `Bluetooth` parses `bluetoothctl show /
+      list / devices -v`, exposes `powered / discoverable / adapter_name /
+      adapter_mac / devices_json`, and `power_on / power_off / toggle /
+      connect_device / disconnect_device / pair_device` qinvokables.
+      `BluetoothPanel.qml` is the Quick Settings surface with a switch
+      and a click-to-(pair|connect|disconnect) device list.
 
 ### Notifications
 
