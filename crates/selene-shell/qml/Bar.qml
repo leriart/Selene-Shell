@@ -27,6 +27,39 @@ Rectangle {
         anchors.rightMargin: Tokens.spacingMd
         spacing: Tokens.spacingMd
 
+        // Logo + wordmark. The logo source flips between the dark and
+        // white variants based on the surface luminance so it stays
+        // visible regardless of which palette is active.
+        Item {
+            Layout.preferredHeight: 22
+            Layout.preferredWidth: 22
+            Layout.alignment: Qt.AlignVCenter
+
+            // WCAG relative luminance applied to the current surface color.
+            function surfaceLuminance() {
+                const c = bar.color;
+                const channel = (v) => {
+                    v = v / 255.0;
+                    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+                };
+                return 0.2126 * channel(c.r * 255)
+                     + 0.7152 * channel(c.g * 255)
+                     + 0.0722 * channel(c.b * 255);
+            }
+            property bool lightBg: surfaceLuminance() < 0.4
+
+            Image {
+                anchors.fill: parent
+                source: parent.lightBg
+                       ? "qrc:/qt/qml/io/github/selene/shell/assets/logo-white.png"
+                       : "qrc:/qt/qml/io/github/selene/shell/assets/logo-dark.png"
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
+                asynchronous: true
+            }
+        }
+
         Label {
             text: "selene"
             color: Tokens.accent
