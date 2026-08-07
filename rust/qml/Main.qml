@@ -46,7 +46,10 @@ ApplicationWindow {
     Notifier {
         id: notifierBackend
 
-        Component.onCompleted: notifierBackend.refresh_from_disk()
+        Component.onCompleted: {
+            notifierBackend.refresh_from_disk();
+            notifierBackend.start_dbus();
+        }
     }
 
     Config {

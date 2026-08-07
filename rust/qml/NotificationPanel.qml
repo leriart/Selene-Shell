@@ -63,6 +63,31 @@ Rectangle {
                     font.bold: true
                 }
 
+                Rectangle {
+                    Layout.preferredHeight: 16
+                    Layout.preferredWidth: 56
+                    radius: 8
+                    color: notifier && notifier.dbus_connected
+                           ? Qt.darker(Tokens.success, 1.4)
+                           : notifier && notifier.notifications_json !== "[]"
+                             ? Qt.darker(Tokens.danger, 1.4)
+                             : Tokens.surfaceAlt
+                    border.color: notifier && notifier.dbus_connected
+                                  ? Tokens.success : Tokens.border
+                    border.width: 1
+                    visible: notifier !== null
+
+                    Label {
+                        anchors.centerIn: parent
+                        text: notifier && notifier.dbus_connected
+                              ? "DBus ok" : "DBus ?"
+                        color: notifier && notifier.dbus_connected
+                               ? Tokens.success : Tokens.textMuted
+                        font.family: Tokens.monoFamily
+                        font.pixelSize: Tokens.fontXs
+                    }
+                }
+
                 Item { Layout.fillWidth: true }
 
                 Rectangle {
@@ -206,18 +231,57 @@ Rectangle {
                                     }
 
                                     Label {
-                                        text: (modelData.app_name || "?") + " \u00b7 " +
+                                        text: (modelData.app_name || "?") + " · " +
                                               ("urg " + String(modelData.urgency || 0))
                                         color: Tokens.textDim
                                         font.family: Tokens.monoFamily
                                         font.pixelSize: Tokens.fontXs
                                     }
-                                }
-                            }
 
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: notifier.mark_read(modelData.id)
+                                    RowLayout {
+                                        visible: modelData.actions && modelData.actions.length >= 2
+                                        spacing: Tokens.spacingXs
+
+                                        Repeater {
+                                            // Actions arrive as [key, label, key, label, ...]
+                                            model: modelData.actions
+                                                   ? Math.floor(modelData.actions.length / 2) : 0
+
+                                            delegate: Rectangle {
+                                                required property int index
+                                                Layout.preferredHeight: 22
+                                                Layout.preferredWidth: actionLabel.implicitWidth + 16
+                                                radius: Tokens.radiusSm
+                                                color: Tokens.surfaceAlt
+                                                border.color: Tokens.accent
+                                                border.width: 1
+
+                                                Label {
+                                                    id: actionLabel
+                                                    anchors.centerIn: parent
+                                                    text: modelData.actions[index * 2 + 1] || "?"
+                                                    color: Tokens.accent
+                                                    font.family: Tokens.fontFamily
+                                                    font.pixelSize: Tokens.fontXs
+                                                }
+
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: notifier.invoke_action(
+                                                        modelData.id,
+                                                        modelData.actions[index * 2])
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    onClicked: notifier.mark_read(modelData.id)
+                                }
                             }
                         }
                     }

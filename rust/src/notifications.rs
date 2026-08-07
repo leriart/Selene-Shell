@@ -2,7 +2,7 @@ use core::pin::Pin;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cxx_qt::bridge]
@@ -48,6 +48,15 @@ pub mod qobject {
         fn refresh_from_disk(self: Pin<&mut Self>);
 
         #[qinvokable]
+        fn invoke_action(self: Pin<&mut Self>, id: i32, action_key: &QString);
+
+        #[qinvokable]
+        fn close_notification(self: Pin<&mut Self>, id: i32);
+
+        #[qinvokable]
+        fn start_dbus(self: Pin<&mut Self>);
+
+        #[qinvokable]
         fn storage_dir(&self) -> QString;
 
         #[qinvokable]
@@ -76,6 +85,10 @@ pub struct Notification {
     pub urgency: u8,
     pub icon: String,
     pub read: bool,
+    #[serde(default)]
+    pub actions: Vec<String>,
+    #[serde(default)]
+    pub expire_timeout: i32,
 }
 
 #[derive(Default)]
@@ -91,7 +104,6 @@ pub struct Store {
 type SharedStore = Arc<Mutex<Store>>;
 
 fn shared() -> &'static SharedStore {
-    use std::sync::OnceLock;
     static STORE: OnceLock<SharedStore> = OnceLock::new();
     STORE.get_or_init(|| Arc::new(Mutex::new(Store::default())))
 }
@@ -175,6 +187,244 @@ fn ensure_storage_dir(state: &mut Store) {
     }
 }
 
+/// Insert (or replace, when replaces_id matches) a notification, persist and
+/// return the JSON blobs the QML side needs. Caller drops the lock and queues
+/// the property updates.
+fn store_push(
+    app_name: String,
+    replaces_id: u32,
+    icon: String,
+    title: String,
+    body: String,
+    urgency: u8,
+    actions: Vec<String>,
+    expire_timeout: i32,
+) -> Option<(u32, QString, QString, i32)> {
+    let mut store = shared().lock().ok()?;
+    ensure_storage_dir(&mut store);
+    if store.dnd {
+        return None;
+    }
+    let id = if replaces_id > 0 {
+        replaces_id
+    } else {
+        let id = store.next_id.max(1);
+        store.next_id = id.saturating_add(1);
+        id
+    };
+    let entry = Notification {
+        id,
+        app_name,
+        title,
+        body,
+        timestamp: now_secs(),
+        urgency: urgency.min(2),
+        icon,
+        read: false,
+        actions,
+        expire_timeout,
+    };
+    if let Some(existing) = store.entries.iter_mut().find(|n| n.id == id) {
+        *existing = entry;
+    } else {
+        store.entries.push(entry);
+    }
+    let count = unread_count(&store);
+    let entries = entries_json(&store);
+    let status = status_json(&store);
+    persist_to_disk(&store);
+    Some((id, entries, status, count))
+}
+
+// ---------------------------------------------------------------------------
+// D-Bus daemon: org.freedesktop.Notifications
+// ---------------------------------------------------------------------------
+
+const FDO_PATH: &str = "/org/freedesktop/Notifications";
+const FDO_NAME: &str = "org.freedesktop.Notifications";
+
+static DBUS_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static DBUS_CONN: OnceLock<zbus::blocking::Connection> = OnceLock::new();
+
+struct FdoNotifications {
+    qt: cxx_qt::CxxQtThread<qobject::Notifier>,
+    conn: zbus::Connection,
+}
+
+#[zbus::interface(name = "org.freedesktop.Notifications")]
+impl FdoNotifications {
+    async fn notify(
+        &mut self,
+        app_name: String,
+        replaces_id: u32,
+        app_icon: String,
+        summary: String,
+        body: String,
+        actions: Vec<String>,
+        hints: std::collections::HashMap<String, zbus::zvariant::Value<'_>>,
+        expire_timeout: i32,
+    ) -> u32 {
+        let urgency = hints
+            .get("urgency")
+            .and_then(|v| u8::try_from(v.clone()).ok())
+            .unwrap_or(1);
+        let icon = if app_icon.is_empty() {
+            hints
+                .get("image-path")
+                .or_else(|| hints.get("image_path"))
+                .and_then(|v| String::try_from(v.clone()).ok())
+                .unwrap_or_default()
+        } else {
+            app_icon
+        };
+
+        let Some((id, entries, status, count)) = store_push(
+            app_name,
+            replaces_id,
+            icon,
+            summary,
+            body,
+            urgency,
+            actions,
+            expire_timeout,
+        ) else {
+            // DND active or store poisoned: spec says the id is still
+            // returned; 0 signals "not shown".
+            return 0;
+        };
+
+        let _ = self.qt.queue(move |mut n| {
+            n.as_mut().set_notifications_json(entries);
+            n.as_mut().set_status_json(status);
+            n.as_mut().set_unread_count(count);
+        });
+        id
+    }
+
+    async fn close_notification(&mut self, id: u32) {
+        remove_entry(id);
+        if let Ok(store) = shared().lock() {
+            let entries = entries_json(&store);
+            let status = status_json(&store);
+            let count = unread_count(&store);
+            drop(store);
+            let _ = self.qt.queue(move |mut n| {
+                n.as_mut().set_notifications_json(entries);
+                n.as_mut().set_status_json(status);
+                n.as_mut().set_unread_count(count);
+            });
+        }
+        // Reason 2: dismissed by CloseNotification call.
+        let _ = self
+            .conn
+            .emit_signal(
+                None::<&str>,
+                FDO_PATH,
+                "org.freedesktop.Notifications",
+                "NotificationClosed",
+                &(id, 2u32),
+            )
+            .await;
+    }
+
+    async fn get_capabilities(&self) -> Vec<&'static str> {
+        vec!["body", "body-markup", "icon-static", "actions", "persistence"]
+    }
+
+    async fn get_server_information(&self) -> (String, String, String, String) {
+        (
+            "selene".to_string(),
+            "selene".to_string(),
+            env!("CARGO_PKG_VERSION").to_string(),
+            "1.2".to_string(),
+        )
+    }
+}
+
+fn remove_entry(id: u32) {
+    if let Ok(mut store) = shared().lock() {
+        let before = store.entries.len();
+        store.entries.retain(|n| n.id != id);
+        if store.entries.len() != before {
+            persist_to_disk(&store);
+        }
+    }
+}
+
+fn set_dbus_state(qt: &cxx_qt::CxxQtThread<qobject::Notifier>, connected: bool, err: Option<String>) {
+    if let Ok(mut store) = shared().lock() {
+        store.dbus_connected = connected;
+        store.dbus_error = err;
+    }
+    let status = shared()
+        .lock()
+        .map(|s| status_json(&s))
+        .unwrap_or_else(|_| QString::from("{}"));
+    let _ = qt.queue(move |mut n| {
+        n.as_mut().set_dbus_connected(connected);
+        n.as_mut().set_status_json(status);
+    });
+}
+
+fn dbus_thread_main(qt: cxx_qt::CxxQtThread<qobject::Notifier>) {
+    let conn = match zbus::blocking::Connection::session() {
+        Ok(c) => c,
+        Err(err) => {
+            set_dbus_state(&qt, false, Some(format!("session bus: {err}")));
+            return;
+        }
+    };
+
+    let server = FdoNotifications {
+        qt: qt.clone(),
+        conn: conn.inner().clone(),
+    };
+    if let Err(err) = conn.object_server().at(FDO_PATH, server) {
+        set_dbus_state(&qt, false, Some(format!("object server: {err}")));
+        return;
+    }
+
+    // DoNotQueue: if another daemon (dunst, mako, quickshell, ...) already
+    // owns the well-known name, fail loudly instead of silently queueing.
+    let flags = zbus::fdo::RequestNameFlags::DoNotQueue.into();
+    let reply = conn.request_name_with_flags(FDO_NAME, flags);
+    match reply {
+        Ok(zbus::fdo::RequestNameReply::PrimaryOwner) => {
+            set_dbus_state(&qt, true, None);
+        }
+        Ok(other) => {
+            set_dbus_state(
+                &qt,
+                false,
+                Some(format!(
+                    "name '{FDO_NAME}' owned by another daemon (reply={other:?}); \
+                     stop quickshell / mako / dunst first"
+                )),
+            );
+            return;
+        }
+        Err(err) => {
+            set_dbus_state(
+                &qt,
+                false,
+                Some(format!("name taken (another daemon is running): {err}")),
+            );
+            return;
+        }
+    }
+
+    if DBUS_CONN.set(conn).is_err() {
+        set_dbus_state(&qt, false, Some("connection already stored".into()));
+        return;
+    }
+
+    // The connection's internal executor keeps dispatching method calls on
+    // its own thread; this thread just stays alive holding the state.
+    loop {
+        std::thread::park();
+    }
+}
+
 impl qobject::Notifier {
     pub fn storage_dir(&self) -> QString {
         QString::from(storage_path().to_string_lossy().as_ref())
@@ -195,37 +445,18 @@ impl qobject::Notifier {
         urgency: i32,
         icon: &QString,
     ) -> i32 {
-        let app = app_name.to_string();
-        let ttl = title.to_string();
-        let bdy = body.to_string();
-        let icn = icon.to_string();
-
-        let mut store = match shared().lock() {
-            Ok(s) => s,
-            Err(_) => return -1,
-        };
-        ensure_storage_dir(&mut store);
-        if store.dnd {
+        let Some((id, entries, status, count)) = store_push(
+            app_name.to_string(),
+            0,
+            icon.to_string(),
+            title.to_string(),
+            body.to_string(),
+            urgency.clamp(0, 2) as u8,
+            Vec::new(),
+            -1,
+        ) else {
             return 0;
-        }
-        let id = store.next_id;
-        store.next_id = store.next_id.saturating_add(1);
-        let entry = Notification {
-            id,
-            app_name: app,
-            title: ttl,
-            body: bdy,
-            timestamp: now_secs(),
-            urgency: urgency.clamp(0, 2) as u8,
-            icon: icn,
-            read: false,
         };
-        store.entries.push(entry);
-        let count = unread_count(&store);
-        let entries = entries_json(&store);
-        let status = status_json(&store);
-        persist_to_disk(&store);
-        drop(store);
 
         let mut this = self;
         this.as_mut().set_notifications_json(entries);
@@ -326,4 +557,66 @@ impl qobject::Notifier {
         this.as_mut().set_status_json(status);
         this.as_mut().set_unread_count(count);
     }
+
+    pub fn close_notification(self: Pin<&mut Self>, id: i32) {
+        remove_entry(id as u32);
+        if let Ok(store) = shared().lock() {
+            let entries = entries_json(&store);
+            let status = status_json(&store);
+            let count = unread_count(&store);
+            drop(store);
+            let mut this = self;
+            this.as_mut().set_notifications_json(entries);
+            this.as_mut().set_status_json(status);
+            this.as_mut().set_unread_count(count);
+        }
+        // Reason 3: revoked by the user (shell side).
+        emit_closed(id as u32, 3);
+    }
+
+    pub fn invoke_action(self: Pin<&mut Self>, id: i32, action_key: &QString) {
+        let key = action_key.to_string();
+        if key.is_empty() {
+            return;
+        }
+        emit_action_invoked(id as u32, key);
+        let mut this = self;
+        this.as_mut().mark_read(id);
+    }
+
+    pub fn start_dbus(self: Pin<&mut Self>) {
+        if DBUS_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return;
+        }
+        let qt: cxx_qt::CxxQtThread<qobject::Notifier> = self.as_ref().qt_thread();
+        std::thread::Builder::new()
+            .name("selene-dbus".into())
+            .spawn(move || dbus_thread_main(qt))
+            .expect("selene: failed to spawn dbus thread");
+    }
+}
+
+/// Emit NotificationClosed from outside the interface method context.
+fn emit_closed(id: u32, reason: u32) {
+    let Some(conn) = DBUS_CONN.get() else { return; };
+    let _ = conn.emit_signal(
+        None::<&str>,
+        FDO_PATH,
+        "org.freedesktop.Notifications",
+        "NotificationClosed",
+        &(id, reason),
+    );
+}
+
+/// Emit ActionInvoked so the originating app (e.g. a chat client with
+/// "reply"/"open" buttons) receives the callback.
+fn emit_action_invoked(id: u32, key: String) {
+    let Some(conn) = DBUS_CONN.get() else { return; };
+    let _ = conn.emit_signal(
+        None::<&str>,
+        FDO_PATH,
+        "org.freedesktop.Notifications",
+        "ActionInvoked",
+        &(id, key),
+    );
 }

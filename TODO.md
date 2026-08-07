@@ -32,8 +32,10 @@ and the existing milestones.
       swaybg, awww, wpaperd. Today: discover via `Pictures/Wallpapers` and
       `.local/share/selene/wallpapers`; let the user point `Wallpaper.use_directory`
       at whichever manager's backing dir.
-- [ ] **Contrast helper** -- pick `text` and `textMuted` colors that maintain a
-      4.5:1 ratio against the live `bg`. Reuse WCAG-style luminance math.
+- [x] **Contrast helper** -- done. `Palette` picks `text_color` from a
+      candidate ladder using WCAG 2.x `contrast_ratio` (relative luminance,
+      target >= 4.5:1); falls back to the best-scoring candidate when the
+      background is mid-luminance.
 
 ### Audio / visualizer integration
 
@@ -47,8 +49,10 @@ and the existing milestones.
 
 ### Compositor + IPC
 
-- [ ] **Push real MPRIS data** into `Island.media_title`/`_artist`/`_playing`
-      (currently mocked). D-Bus subscription to `org.mpris.MediaPlayer2.Player`.
+- [x] **Push real MPRIS data** into `Island.media_title`/`_artist`/`_playing`
+      -- done via `playerctl metadata --format` subprocess polling on the 2s
+      Island tick (no zbus dep). Degrades to "Nothing playing" when no player
+      or playerctl is absent.
 - [ ] **Wayland layer-shell** for the panels (`Bar`, `Launcher`,
       `NotificationPanel`, `Island`) so they paint under the compositor's
       window-management rules, not as ApplicationWindow children.
@@ -57,8 +61,10 @@ and the existing milestones.
       is delegated to the system's ffmpeg/MediaFoundation/VA-API pipeline.
 - [ ] **Real `hyprctl JSON`-driven monitors screen** -- a Settings surface for
       resolution, scale, transform, VRR per output.
-- [ ] **CPU% sampler** for `Island.metrics_cpu` instead of load-average only.
-      Reads `/proc/stat` twice with deltas; needs a small Rust sampler.
+- [x] **CPU% sampler** for `Island.cpu_percent` -- done. Reads `/proc/stat`
+      on each 2s tick and diffs against the previous sample (classic
+      (totald - idled) / totald). Also battery via
+      `/sys/class/power_supply/*/capacity` and a clock property.
 - [ ] **Network / Bluetooth / Audio** QObjects so the Quick Settings surface
       has real data.
 
@@ -75,11 +81,14 @@ and the existing milestones.
 
 ### Launcher / Spawner
 
-- [ ] **`.desktop` field-code expansion** (the spec is documented; full URL
-      handling, %u/%F replacement, terminal flag).
-- [ ] **`TryExec` preflight** -- skip apps where the binary isn't on PATH.
-- [ ] **Detached spawn via `setsid`** so children truly outlive the shell
-      process rather than inheriting session association.
+- [x] **`.desktop` field-code expansion** -- done per freedesktop spec:
+      `%f/%F/%u/%U` (files/URLs) drop out, `%i/%c/%k` (icon/name/location)
+      drop out, `%%` becomes a literal percent, whitespace collapses.
+- [x] **`TryExec` preflight** -- entries whose `TryExec` binary isn't on PATH
+      are skipped during enumeration, per the desktop-entry spec.
+- [x] **Detached spawn via `setsid --fork`** -- children land in their own
+      session and outlive the shell process; falls back to plain spawn when
+      `setsid` is absent.
 - [ ] **Hax-style prefixes** beyond `@` and `>` -- `=` calculator, `?` web
       search, `:` emoji picker, `/` bookmark search.
 - [ ] **App search ranking by usage** (track launches in
@@ -87,8 +96,10 @@ and the existing milestones.
 
 ### Config / Settings
 
-- [ ] **Full Settings panel QML** -- every Config/Bridge/Island/Notifier/Spawner
-      property as a searchable, filterable list with inline editors.
+- [x] **Settings panel QML (v1)** -- `SettingsPanel.qml` edits every scalar
+      Config property (SpinBox / Switch / ComboBox / TextField) via
+      `Config.set_value(key, val)` and persists with `Config.save()`, which
+      serializes the live state back to `init.lua`.
 - [ ] **Per-screen overrides** for panel position, bar layout, accent density.
 - [ ] **Hot-reload of `init.lua`** via inotify watcher (currently requires a
       full `selene reload` to re-read).
@@ -132,6 +143,19 @@ and the existing milestones.
 ## Done
 
 Shipped in chronological order (newest at top).
+
+- [x] **Real Island metrics** -- CPU% (`/proc/stat` deltas), battery
+      (`/sys/class/power_supply`), clock (`time_hhmm`/`date_ymd`), MPRIS via
+      `playerctl` (replaces mocked media). 2026-08-07.
+- [x] **Launcher spec compliance** -- field-code expansion, `TryExec`
+      preflight, `setsid --fork` detached spawn, icon/terminal in apps_json.
+      2026-08-07.
+- [x] **WCAG contrast text** in `Palette` (4.5:1 ladder). 2026-08-07.
+- [x] **`Config.save()` + `set_value()`** -- writes live state back to
+      `init.lua`; `SettingsPanel.qml` is the editor UI. 2026-08-07.
+- [x] **`WallpaperPicker.qml`** -- thumbnail grid over
+      `Wallpaper.paths_json`, prev/next/rescan, click-to-pick. 2026-08-07.
+- [x] **Bar clock + battery chip** fed by `Island`. 2026-08-07.
 
 - [x] **Notification center** with JSON persistence, DND, mark-read/clear
       (`Notifier` QObject + `NotificationPanel.qml`). 2026-XX-XX.
