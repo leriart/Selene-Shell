@@ -42,6 +42,21 @@ pub mod qobject {
 
         #[qinvokable]
         fn refresh(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn lock(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn suspend(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn reboot(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn poweroff(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn logout(self: Pin<&mut Self>);
     }
 }
 
@@ -288,5 +303,40 @@ impl qobject::Island {
             this.as_mut()
                 .set_power_summary(QString::from("lock / suspend / reboot / logout"));
         }
+    }
+
+    fn dispatch_power(self: Pin<&mut Self>, args: &[&str], label: &'static str) {
+        let mut this = self;
+        let status = match std::process::Command::new("loginctl")
+            .args(args)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+        {
+            Ok(_) => format!("{label} dispatched"),
+            Err(err) => format!("{label} failed: {err}"),
+        };
+        this.as_mut().set_power_summary(QString::from(status.as_str()));
+    }
+
+    pub fn lock(self: Pin<&mut Self>) {
+        self.dispatch_power(&["lock-session"], "lock");
+    }
+
+    pub fn suspend(self: Pin<&mut Self>) {
+        self.dispatch_power(&["suspend"], "suspend");
+    }
+
+    pub fn reboot(self: Pin<&mut Self>) {
+        self.dispatch_power(&["reboot"], "reboot");
+    }
+
+    pub fn poweroff(self: Pin<&mut Self>) {
+        self.dispatch_power(&["poweroff"], "poweroff");
+    }
+
+    pub fn logout(self: Pin<&mut Self>) {
+        self.dispatch_power(&["terminate-user", "self"], "logout");
     }
 }

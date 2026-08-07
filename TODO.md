@@ -91,8 +91,10 @@ and the existing milestones.
       `setsid` is absent.
 - [ ] **Hax-style prefixes** beyond `@` and `>` -- `=` calculator, `?` web
       search, `:` emoji picker, `/` bookmark search.
-- [ ] **App search ranking by usage** (track launches in
-      `~/.local/share/selene/launcher-stats.json`, weight by recency/frequency).
+- [x] **App search ranking by usage** -- `Spawner.record_launch(label)` writes
+      to `~/.local/share/selene/launcher-stats.json`; on `refresh()` the
+      `apps_json` is sorted by frequency (desc) then alphabetical; the
+      `weight` field is exposed in each entry for QML re-ranking.
 
 ### Config / Settings
 
@@ -101,8 +103,10 @@ and the existing milestones.
       `Config.set_value(key, val)` and persists with `Config.save()`, which
       serializes the live state back to `init.lua`.
 - [ ] **Per-screen overrides** for panel position, bar layout, accent density.
-- [ ] **Hot-reload of `init.lua`** via inotify watcher (currently requires a
-      full `selene reload` to re-read).
+- [x] **Hot-reload of `init.lua`** via inotify watcher -- `Config.start_watcher()`
+      spawns a thread that watches the parent directory with `notify`, debounces
+      250ms, then calls `Config.reload()` on the Qt main thread via the cxx-qt
+      queue.
 - [ ] **Vendor-agnostic Settings backend** -- let power users swap the
       `Config` Rust impl with a Lua-only sandboxed one.
 
@@ -122,8 +126,8 @@ and the existing milestones.
 
 - [ ] **AUR package** + **Fedora COPR** + **Nix flake** -- mirrors the Selene
       install policy on each ecosystem.
-- [ ] **`selene doctor`** subcommand that prints versions of Qt, Rust, Hyprland,
-      CAVA, ffmpeg, liblua, dbus, plus token presence.
+- [x] **`selene doctor`** subcommand that prints versions of Qt, Rust,
+      Hyprland, CAVA, ffmpeg, liblua, dbus, plus token presence.
 - [ ] **Smoke-test under Nix** -- the install script detects Nix but doesn't
       exercise a `nix run` path.
 
@@ -147,6 +151,15 @@ Shipped in chronological order (newest at top).
 - [x] **Real Island metrics** -- CPU% (`/proc/stat` deltas), battery
       (`/sys/class/power_supply`), clock (`time_hhmm`/`date_ymd`), MPRIS via
       `playerctl` (replaces mocked media). 2026-08-07.
+- [x] **Power menu actions** -- `Island.lock/suspend/reboot/poweroff/logout`
+      qinvokables dispatching to `loginctl`; surfaced as buttons in the
+      expanded `IslandPill` card. 2026-08-07.
+- [x] **Launcher ranking by usage** -- `Spawner.record_launch(label)` writes
+      to `~/.local/share/selene/launcher-stats.json`; `apps_json` is sorted
+      by frequency. 2026-08-07.
+- [x] **Inotify hot-reload of init.lua** via `notify` + cxx_qt queue. 2026-08-07.
+- [x] **`selene doctor`** -- new subcommand printing a per-binary /
+      per-config diagnostic. 2026-08-07.
 - [x] **Launcher spec compliance** -- field-code expansion, `TryExec`
       preflight, `setsid --fork` detached spawn, icon/terminal in apps_json.
       2026-08-07.

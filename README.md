@@ -346,10 +346,35 @@ event-driven pipeline is live; the rest of the HUD is being ported.
       `Wallpaper.qml` + `VideoWallpaperService.qml` pattern; rendered inside
       the `ApplicationWindow` because cxx-qt's `QQuickView` doesn't yet push
       a `WlrLayershell` Background layer.
+- [x] **Real Island metrics** -- CPU% via `/proc/stat` deltas, battery via
+      `/sys/class/power_supply`, `date` for clock, `playerctl` for MPRIS.
+      Replaces every mock in `Island` and feeds the new `Bar` clock + battery
+      chips.
+- [x] **Power menu actions** -- `Island.lock/suspend/reboot/poweroff/logout`
+      qinvokables dispatching to `loginctl`. Buttons live in the expanded
+      `IslandPill` card.
+- [x] **Launcher spec compliance** -- `.desktop` field-code expansion
+      (%f %u %c ...), `TryExec` preflight, `setsid --fork` detached spawn,
+      icon + terminal exported in `apps_json`.
+- [x] **Launcher ranking by usage** -- `Spawner.record_launch(label)` writes
+      to `~/.local/share/selene/launcher-stats.json`; `apps_json` is sorted
+      by frequency on every refresh; the `weight` field is exposed per entry.
+- [x] **D-Bus notification daemon** -- `Notifier.start_dbus()` spawns a
+      dedicated thread that runs a `zbus` blocking connection serving
+      `org.freedesktop.Notifications` on `/org/freedesktop/Notifications`
+      with the full `Notify` / `CloseNotification` / `GetCapabilities` /
+      `GetServerInformation` surface and emits `NotificationClosed` and
+      `ActionInvoked` signals. `set_value` and `save` qinvokables now
+      survive `init.lua` reloads and persist edits back to disk.
+- [x] **Inotify hot-reload of init.lua** via `notify` + cxx_qt queue.
+- [x] **`selene doctor`** -- prints per-binary / per-config diagnostics.
+- [x] **Wallpaper picker UI** -- `WallpaperPicker.qml` thumbnail grid,
+      prev/next/rescan, click-to-pick. `Ctrl+Alt+Left/Right` cycle through
+      the wallpapers from anywhere.
+- [x] **Settings panel UI** -- `SettingsPanel.qml` edits every scalar
+      Config property via `Config.set_value(key, val)` + `Config.save()`
 - [ ] D-Bus daemon -- serve `org.freedesktop.Notifications` on the session bus
-      so any `notify-send` lands in the `Notifier` queue (architecture in place,
-      `dbus`-crate binding held back until we wire a response message that matches
-      the spec)
+      (already done; this row is kept for legacy changelog audits)
 - [ ] Wire `Palette` colors into more Tokens (font, borders, danger/success) so
       every chrome surface paints with the wallpaper-derived palette
 - [ ] **Wayland layer-shell rendering** -- paint the wallpaper at the

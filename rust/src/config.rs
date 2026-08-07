@@ -1,9 +1,11 @@
 use core::pin::Pin;
+use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use mlua::Lua;
 use serde::Serialize;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -51,8 +53,13 @@ pub mod qobject {
         fn set_value(self: Pin<&mut Self>, key: &QString, value: &QString);
 
         #[qinvokable]
+        fn start_watcher(self: Pin<&mut Self>);
+
+        #[qinvokable]
         fn path(&self) -> QString;
     }
+
+    impl cxx_qt::Threading for Config {}
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -482,5 +489,77 @@ impl qobject::Config {
 
     pub fn path(&self) -> QString {
         QString::from(default_path().to_string_lossy().as_ref())
+    }
+
+    pub fn start_watcher(self: Pin<&mut Self>) {
+        static STARTED: AtomicBool = AtomicBool::new(false);
+        if STARTED.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let qt: cxx_qt::CxxQtThread<qobject::Config> = self.as_ref().qt_thread();
+        let path = default_path();
+        std::thread::Builder::new()
+            .name("selene-config-watcher".into())
+            .spawn(move || watch_config(path, qt))
+            .expect("selene: failed to spawn config watcher thread");
+    }
+}
+
+fn watch_config(path: PathBuf, qt: cxx_qt::CxxQtThread<qobject::Config>) {
+    use notify::Watcher;
+    use std::time::Duration;
+
+    // Notify's recommended pattern: debounce events with a timeout poll.
+    let mut debounce = std::time::Instant::now();
+    let mut pending = false;
+
+    let parent = path.parent().unwrap_or(&path).to_path_buf();
+    let file_name = path
+        .file_name()
+        .map(|s| s.to_os_string())
+        .unwrap_or_default();
+
+    let Ok(mut watcher) = notify::recommended_watcher(
+        move |res: notify::Result<notify::Event>| {
+            if let Ok(event) = res {
+                if event.paths.iter().any(|p| {
+                    p.file_name() == Some(&file_name)
+                }) {
+                    debounce = std::time::Instant::now();
+                    pending = true;
+                }
+            }
+        },
+    ) else {
+        let _ = qt.queue(|mut c| {
+            c.as_mut().set_status(QString::from("watcher: cannot create notifier"));
+        });
+        return;
+    };
+
+    if let Err(err) = watcher.watch(&parent, notify::RecursiveMode::NonRecursive) {
+        let _ = qt.queue(move |mut c| {
+            c.as_mut()
+                .set_status(QString::from(format!("watcher: {err}")));
+        });
+        return;
+    }
+
+    let _ = qt.queue(|mut c| {
+        c.as_mut()
+            .set_status(QString::from("watching init.lua for changes"));
+    });
+
+    loop {
+        // The watcher must stay alive in the stack frame; the closure
+        // receives events on its own. We only need to time the debounce.
+        std::hint::black_box(&watcher);
+        if pending && debounce.elapsed() > Duration::from_millis(250) {
+            pending = false;
+            let _ = qt.queue(|mut c| {
+                c.as_mut().reload();
+            });
+        }
+        std::thread::sleep(Duration::from_millis(120));
     }
 }

@@ -55,7 +55,10 @@ ApplicationWindow {
     Config {
         id: configBackend
 
-        Component.onCompleted: configBackend.reload()
+        Component.onCompleted: {
+            configBackend.reload();
+            configBackend.start_watcher();
+        }
     }
 
     Palette {
@@ -419,6 +422,14 @@ ApplicationWindow {
             if (event.key === Qt.Key_Super_L || event.key === Qt.Key_Super_R) {
                 launcher.toggle();
                 event.accepted = true;
+            } else if (event.modifiers === (Qt.ControlModifier | Qt.AltModifier)) {
+                if (event.key === Qt.Key_Right) {
+                    wallpaperBackend.next_wall();
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Left) {
+                    wallpaperBackend.previous_wall();
+                    event.accepted = true;
+                }
             }
         }
     }

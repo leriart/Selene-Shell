@@ -1,8 +1,10 @@
 use core::pin::Pin;
 use cxx_qt_lib::QString;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::{Mutex, OnceLock};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -18,6 +20,7 @@ pub mod qobject {
         #[qproperty(QString, actions_json)]
         #[qproperty(QString, search_paths)]
         #[qproperty(i32, app_count)]
+        #[qproperty(QString, stats_json)]
         type Spawner = super::SpawnerRust;
 
         #[qinvokable]
@@ -28,6 +31,12 @@ pub mod qobject {
 
         #[qinvokable]
         fn run_action(self: Pin<&mut Self>, action_label: &QString) -> i32;
+
+        #[qinvokable]
+        fn record_launch(self: Pin<&mut Self>, label: &QString);
+
+        #[qinvokable]
+        fn stats_path(&self) -> QString;
     }
 
     impl cxx_qt::Threading for Spawner {}
@@ -39,6 +48,7 @@ pub struct SpawnerRust {
     actions_json: QString,
     search_paths: QString,
     app_count: i32,
+    stats_json: QString,
 }
 
 struct DesktopEntry {
@@ -95,10 +105,20 @@ const BUILTIN_ACTIONS: &[BuiltinAction] = &[
 
 impl qobject::Spawner {
     pub fn refresh(self: Pin<&mut Self>) {
-        let apps = enumerate_apps(&default_search_paths_borrowed());
+        let mut apps = enumerate_apps(&default_search_paths_borrowed());
+        let stats = stats_load();
+        // Sort by usage (desc) then alphabetical. New / unused apps float to
+        // the bottom; the QML launcher can still filter, this just biases
+        // the default ordering.
+        apps.sort_by(|a, b| {
+            let wa = stats.get(&a.name).copied().unwrap_or(0);
+            let wb = stats.get(&b.name).copied().unwrap_or(0);
+            wb.cmp(&wa).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        });
         let apps_count = apps.len();
-        let apps_json = apps_to_json(&apps);
+        let apps_json = apps_to_json(&apps, &stats);
         let actions_json = actions_to_json();
+        let stats_json = stats_to_json(&stats);
 
         let mut this = self;
         this.as_mut()
@@ -108,6 +128,13 @@ impl qobject::Spawner {
         this.as_mut()
             .set_search_paths(QString::from(default_search_paths().join("\n").as_str()));
         this.as_mut().set_app_count(apps_count as i32);
+        this.as_mut()
+            .set_stats_json(QString::from(stats_json.as_str()));
+        // seed the in-memory tracker so record_launch can update without
+        // re-reading the file
+        if let Ok(mut shared) = stats_shared().lock() {
+            *shared = stats;
+        }
     }
 
     pub fn launch(self: Pin<&mut Self>, exec: &QString) -> i32 {
@@ -125,6 +152,27 @@ impl qobject::Spawner {
             full.push_str(arg);
         }
         spawn_command_owned(&full)
+    }
+
+    pub fn record_launch(self: Pin<&mut Self>, label: &QString) {
+        let label = label.to_string();
+        if label.is_empty() {
+            return;
+        }
+        let Ok(mut shared) = stats_shared().lock() else {
+            return;
+        };
+        let entry = shared.entry(label).or_insert(0);
+        *entry = entry.saturating_add(1);
+        stats_save(&shared);
+        let new_json = stats_to_json(&shared);
+        let mut this = self;
+        this.as_mut()
+            .set_stats_json(QString::from(new_json.as_str()));
+    }
+
+    pub fn stats_path(&self) -> QString {
+        QString::from(stats_path().to_string_lossy().as_ref())
     }
 }
 
@@ -145,18 +193,54 @@ fn default_search_paths_borrowed() -> Vec<PathBuf> {
     default_search_paths().into_iter().map(PathBuf::from).collect()
 }
 
-fn apps_to_json(apps: &[DesktopEntry]) -> String {
+fn stats_path() -> PathBuf {
+    let home = std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h))
+        .unwrap_or_else(|| PathBuf::from("/"));
+    home.join(".local/share/selene/launcher-stats.json")
+}
+
+fn stats_load() -> HashMap<String, u64> {
+    let path = stats_path();
+    fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<HashMap<String, u64>>(&s).ok())
+        .unwrap_or_default()
+}
+
+fn stats_save(stats: &HashMap<String, u64>) {
+    let path = stats_path();
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Ok(s) = serde_json::to_string_pretty(stats) {
+        let _ = fs::write(&path, s);
+    }
+}
+
+fn stats_shared() -> &'static Mutex<HashMap<String, u64>> {
+    static STATS: OnceLock<Mutex<HashMap<String, u64>>> = OnceLock::new();
+    STATS.get_or_init(|| Mutex::new(stats_load()))
+}
+
+fn stats_to_json(stats: &HashMap<String, u64>) -> String {
+    serde_json::to_string(stats).unwrap_or_else(|_| "{}".to_string())
+}
+
+fn apps_to_json(apps: &[DesktopEntry], stats: &HashMap<String, u64>) -> String {
     let mut out = String::from("[");
     for (i, entry) in apps.iter().enumerate() {
         if i > 0 {
             out.push(',');
         }
+        let weight = stats.get(&entry.name).copied().unwrap_or(0);
         out.push_str(&json_escape(&format!(
-            "{{\"label\":\"{}\",\"exec\":\"{}\",\"icon\":\"{}\",\"terminal\":{}}}",
+            r#"{{"label":"{}","exec":"{}","icon":"{}","terminal":{},"weight":{}}}"#,
             entry.name,
             entry.exec,
             entry.icon,
-            if entry.terminal { "true" } else { "false" }
+            if entry.terminal { "true" } else { "false" },
+            weight
         )));
     }
     out.push(']');

@@ -24,6 +24,7 @@ Commands:
   quit                Stop the running shell instance.
   update              Pull, rebuild, and re-stage.
   status              Show install paths and binary state.
+  doctor              Diagnose the environment Selene runs against.
   install hyprland    Add the Selene source line to ~/.config/hypr/hyprland.conf.
   remove  hyprland    Remove the Selene source line.
 
@@ -74,6 +75,77 @@ cmd_status() {
   printf "share       : %s (%s)\n" "$SELENE_SHARE" "$([[ -d $SELENE_SHARE ]] && echo ready || echo missing)"
   printf "binary      : %s\n" "$SELENE_BIN"
   printf "running pid : %s\n" "$(pgrep -x selene-shell || echo none)"
+}
+
+cmd_doctor() {
+  local ok=0 format_line='%-16s %s\n'
+  printf "$format_line" "selene" "selene-shell found"
+  [[ -x $SELENE_BIN ]] && printf "$format_line" "" "($SELENE_BIN)" || { ok=1; printf "$format_line" "" "MISSING - run: selene update"; }
+  printf "$format_line" "share" "${SELENE_SHARE}$([[ -d $SELENE_SHARE ]] && echo " (ready)" || echo " (missing; will be created on first run)")"
+
+  local bins=("qmake6" "ffmpeg" "playerctl" "busctl" "hyprctl")
+  for b in "${bins[@]}"; do
+    local found
+    if found="$(command -v "$b" 2>/dev/null)"; then
+      printf "$format_line" "$b" "$found"
+    else
+      printf "$format_line" "$b" "MISSING"
+      case "$b" in
+        qmake6|ffmpeg) ok=1 ;;
+      esac
+    fi
+  done
+
+  local lib qtver
+  if [[ -r /usr/lib/qt6/libexec/qformatinfo ]]; then
+    lib="(qt6 libexec)"
+  else
+    lib=""
+  fi
+  if qtver="$(qmake6 -query QT_VERSION 2>/dev/null)"; then
+    printf "$format_line" "qt6-version" "${qtver}${lib}"
+  else
+    printf "$format_line" "qt6-version" "unknown"
+  fi
+
+  if rustver="$(rustc --version 2>/dev/null)"; then
+    printf "$format_line" "rust" "${rustver}"
+  fi
+
+  if [[ -S /run/user/$(id -u)/bus ]]; then
+    printf "$format_line" "session-bus" "present"
+  else
+    printf "$format_line" "session-bus" "MISSING (notifications will be inert)"
+    ok=1
+  fi
+
+  local own
+  if own="$(busctl --user list 2>/dev/null | awk '$1 == "org.freedesktop.Notifications" { for (i = 3; i <= NF; i++) { if ($i != "" && $i !~ ":") { print $i; next } } }' | head -1)"; then
+    [[ -n "$own" ]] && printf "$format_line" "notif-daemon" "$own" || printf "$format_line" "notif-daemon" "none"
+  else
+    printf "$format_line" "notif-daemon" "busctl unable to query"
+  fi
+
+  if compgen -G "$HOME/.config/selene/init.lua" > /dev/null 2>&1; then
+    printf "$format_line" "init.lua" "loaded"
+  else
+    printf "$format_line" "init.lua" "missing (using defaults)"
+  fi
+
+  if [[ -d "$HOME/.local/share/selene/wallpapers" ]]; then
+    local count
+    count=$(find "$HOME/.local/share/selene/wallpapers" -type f \( -iname '*.jpg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.gif' -o -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.mov' \) 2>/dev/null | wc -l)
+    printf "$format_line" "wallpapers" "${count} files"
+  else
+    printf "$format_line" "wallpapers" "(no ~/.local/share/selene/wallpapers)"
+  fi
+
+  if [[ $ok -eq 0 ]]; then
+    printf "\n[doctor] green light.\n"
+  else
+    printf "\n[doctor] issues found -- resolve the MISSING items above.\n"
+    exit 1
+  fi
 }
 
 cmd_install_hyprland() {
@@ -154,6 +226,7 @@ case "$cmd" in
   quit)           cmd_quit ;;
   update)         cmd_update ;;
   status)         cmd_status ;;
+  doctor)         cmd_doctor ;;
   install)
     sub="${1:-}"; shift || true
     case "$sub" in

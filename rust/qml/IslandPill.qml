@@ -223,6 +223,41 @@ Item {
 
             Item { Layout.fillHeight: true }
 
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Button {
+                    text: "lock"
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontXs
+                    enabled: root.islandSource !== null
+                    onClicked: if (root.islandSource) root.islandSource.lock()
+                }
+                Button {
+                    text: "suspend"
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontXs
+                    enabled: root.islandSource !== null
+                    onClicked: if (root.islandSource) root.islandSource.suspend()
+                }
+                Button {
+                    text: "reboot"
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontXs
+                    enabled: root.islandSource !== null
+                    onClicked: if (root.islandSource) root.islandSource.reboot()
+                }
+                Button {
+                    text: "logout"
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontXs
+                    enabled: root.islandSource !== null
+                    onClicked: if (root.islandSource) root.islandSource.logout()
+                }
+                Item { Layout.fillWidth: true }
+            }
+
             Label {
                 text: (root.islandSource && root.islandSource.power_summary) || ""
                 color: Tokens.textDim

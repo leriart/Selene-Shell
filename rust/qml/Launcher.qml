@@ -281,6 +281,7 @@ Rectangle {
                 spawner.run_action(item.label);
             } else {
                 spawner.launch(item.exec);
+                spawner.record_launch(item.label);
             }
         }
         root.close();
