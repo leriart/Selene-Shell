@@ -12,6 +12,10 @@
   <em>A QML shell for Hyprland. Light as moonlight, solid as Rust.</em>
 </p>
 
+<p align="center">
+  <img alt="Selene shell running" src="assets/screenshot-shell.png" width="680" />
+</p>
+
 Selene is a modern, visually refined shell for [Hyprland](https://hyprland.org) and the
 spiritual successor to [NothingLess](https://github.com/leriart/NothingLess). Its user
 interface is crafted in QML, backed by a high-performance Rust core, and scriptable in
