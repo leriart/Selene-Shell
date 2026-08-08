@@ -24,7 +24,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.margins: Tokens.barMargin
-        width: 400
+        width: 420
 
         color: Tokens.surface
         radius: Tokens.radiusLg

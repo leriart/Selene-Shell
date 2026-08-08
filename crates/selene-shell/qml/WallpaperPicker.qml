@@ -27,7 +27,7 @@ Rectangle {
 
     Rectangle {
         anchors.centerIn: parent
-        width: Math.min(parent.width - Tokens.barMargin * 4, 720)
+        width: Math.min(parent.width - Tokens.barMargin * 4, 880)
         height: Math.min(parent.height - Tokens.barMargin * 4, 520)
 
         color: Tokens.surface
@@ -184,7 +184,13 @@ Rectangle {
 
                     MouseArea {
                         anchors.fill: parent
-                        onClicked: if (wallpaper) wallpaper.pick_index(index)
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (wallpaper) wallpaper.pick_index(index);
+                            // Auto-close the picker after a successful pick so
+                            // the wallpaper is visible immediately.
+                            root.close();
+                        }
                     }
                 }
             }

@@ -143,7 +143,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         anchors.leftMargin: Tokens.barPadding
         anchors.rightMargin: Tokens.barPadding
-        width: Math.min(parent.width - 320, implicitWidth)
+        width: Math.min(parent.width - 480, implicitWidth)
         horizontalAlignment: Text.AlignHCenter
         text: {
             if (!bridge) return "selene";
@@ -160,13 +160,30 @@ Rectangle {
         elide: Text.ElideMiddle
     }
 
-    // -- Right: tray + clock + status icons + power ------------------
+    // -- Right: media + tray + clock + status icons + power ------------
     RowLayout {
         id: rightCluster
         anchors.right: parent.right
         anchors.rightMargin: Tokens.barPadding
         anchors.verticalCenter: parent.verticalCenter
         spacing: Tokens.barSpacing
+
+        // Media title appears next to the status icons when something
+        // is playing. Caelestia shows it on the bar too; we keep
+        // it short and elide.
+        Label {
+            Layout.maximumWidth: 180
+            visible: island && island.media_playing
+                     && island.media_title.length > 0
+            text: (island && island.media_playing ? "\u25B6 " : "") +
+                  (island ? island.media_title : "")
+            color: Tokens.textMuted
+            font.family: Tokens.monoFamily
+            font.pixelSize: Tokens.fontXs
+            elide: Text.ElideRight
+        }
+
+        BarSeparator { visible: island && island.media_playing }
 
         // Status icons cluster -- mirrors Caelestia's `statusIcons`
         // array. Six small dots; the ones whose backing QObject is
