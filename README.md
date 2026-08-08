@@ -197,13 +197,26 @@ Selene ships the surfaces that NothingLess and Caelestia proved users actually
 touch on a daily basis. Each becomes a QML surface that reads/writes through a
 dedicated Rust QObject.
 
-- **Status bar** -- translucent top bar with workspace chips, active-window pill,
-  connection badge, future media + tray extension.
-- **Notification Center** -- QML-hosted D-Bus notification daemon with persistence,
-  history and DND.
-- **Launcher** -- fuzzy search over apps / files / shell actions with prefix
-  triggers (`@app`, `>action`), modeled after Hax.
-- **Clipboard** -- searchable, categorized, favorites + QR/URL previews.
+- **Status bar** -- floating top pill (Caelestia layout: `logo | workspaces
+  | activeWindow | statusIcons | clock | battery | power`) with backdrop blur
+  over the wallpaper, status dots for hyprland/audio/network/bluetooth, an
+  inline media title, and a power button that opens a session menu
+  (lock / suspend / logout / reboot / poweroff).
+- **Quick Settings** -- Audio (sinks + volume), Network (wifi + password
+  connect), Bluetooth (pair / connect / disconnect) panels wired to
+  pactl / nmcli / bluetoothctl subprocesses.
+- **Notification Center** -- QML-hosted D-Bus notification daemon with
+  persistence, FIFO history cap, action buttons, DND, and
+  `~/.local/share/selene/notifications.json` storage.
+- **Launcher** -- Hax-style fuzzy search over apps / shell actions with
+  prefix triggers (`@app`, `>action`, `=calc`, `?web search`, `:emoji`).
+  Results click-to-launch; emoji copies to clipboard via wl-copy / xclip /
+  xsel fallback chain.
+- **Visualizer** -- live `cava` subprocess piped into the IslandPill
+  audio bars (active alongside media playback).
+- **Wallpaper picker** -- directory enumeration with thumbnail grid,
+  click-to-pick driving the live Palette engine that re-tints the bar's
+  primary background.
 - **Quick Settings** -- network, bluetooth, audio and battery toggles that
   write through to `NetworkManager` / `bluetoothctl` / `wpctl` via small Rust
   commands.
