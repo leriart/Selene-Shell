@@ -21,6 +21,6 @@ To regenerate every panel:
 ```bash
 for p in launcher notif walls settings audio net bt; do
   QT_QPA_PLATFORM=offscreen build/selene-shell \
-      --screenshot "assets/panel-$p.png" --show $p --delay 4000 --size 720x480
+      --screenshot "assets/panel-$p.png" --show $p --delay 4000 --size 1100x700
 done
 ```
