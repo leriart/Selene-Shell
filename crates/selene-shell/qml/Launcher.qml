@@ -64,25 +64,84 @@ Rectangle {
     onSpawnerChanged: rebuildEntries()
 
     property var results: []
+    // Live values for the inline-action entries (calculator, web search).
+    property string calcResult: ""
+    property string calcError: ""
+    property string searchUrl: ""
+
     function update() {
-        const query = input.text.trim().toLowerCase();
-        const isAction = query.startsWith(">");
-        const isApp = query.startsWith("@");
-        const needle = (isAction ? query.slice(1) :
-                        isApp    ? query.slice(1) :
-                        query).trim();
-        const bag = isAction ? actionEntries : appEntries;
+        const query = input.text;
+        const trimmed = query.trim();
+        const isAction = trimmed.startsWith(">");
+        const isApp = trimmed.startsWith("@");
+        const isCalc = trimmed.startsWith("=");
+        const isSearch = trimmed.startsWith("?");
+        const needle = (
+            isAction ? trimmed.slice(1) :
+            isApp    ? trimmed.slice(1) :
+            isCalc   ? trimmed.slice(1) :
+            isSearch ? trimmed.slice(1) :
+            trimmed
+        ).trim();
+
+        calcResult = "";
+        calcError = "";
+        searchUrl = "";
 
         if (needle.length === 0) {
             results = [];
             return;
         }
 
+        // == calculator =====================================================
+        if (isCalc) {
+            // Allow only digits, operators, parens, decimal, percent, space.
+            const safe = needle.replace(/[^0-9+\-*/().%^,\s]/g, "");
+            if (safe !== needle.replace(/\s+$/, "")) {
+                calcError = "only digits and + - * / ( ) % ^";
+            } else {
+                try {
+                    // ^ -> Math.pow, % -> mod 100 isn't right; treat as mod.
+                    const expr = safe.replace(/\^/g, "**");
+                    // eslint-disable-next-line no-new-func
+                    const fn = new Function("return (" + expr + ");");
+                    const v = fn();
+                    calcResult = (typeof v === "number" && isFinite(v))
+                                  ? String(v) : "NaN";
+                } catch (e) {
+                    calcError = String(e);
+                }
+            }
+            results = [{
+                kind: "calc",
+                label: calcError || ("= " + calcResult),
+                primary: calcResult,
+                secondary: calcError
+            }];
+            return;
+        }
+
+        // == ? web search ===================================================
+        if (isSearch) {
+            const url = "https://duckduckgo.com/?q=" + encodeURIComponent(needle);
+            searchUrl = url;
+            results = [{
+                kind: "search",
+                label: "search: " + needle,
+                primary: needle,
+                url: url
+            }];
+            return;
+        }
+
+        // == @ apps / > actions / fuzzy ====================================
+        const bag = isAction ? actionEntries : appEntries;
         const out = [];
+        const lower = needle.toLowerCase();
         for (let i = 0; i < bag.length; ++i) {
             const item = bag[i];
             const label = (item.label || "").toLowerCase();
-            if (label.indexOf(needle) !== -1) {
+            if (label.indexOf(lower) !== -1) {
                 out.push({
                     kind: isAction ? "action" : "app",
                     label: item.label,
@@ -122,7 +181,7 @@ Rectangle {
             height: 56
             leftPadding: Tokens.spacingLg
             rightPadding: Tokens.spacingLg
-            placeholderText: "search apps (@), actions (>), or just type"
+            placeholderText: "@ app   > action   = calc   ? web search"
             placeholderTextColor: Tokens.textMuted
             color: Tokens.text
             background: Rectangle {
@@ -165,7 +224,7 @@ Rectangle {
             anchors.topMargin: 18
             anchors.rightMargin: Tokens.spacingLg
             text: input.text.length === 0
-                  ? "@ app   > action   " + String.fromCharCode(0x2191, 0x2193) + "  " + String.fromCharCode(0x23CE) + "  esc"
+                  ? "@/>/=/?   " + String.fromCharCode(0x2191, 0x2193) + " " + String.fromCharCode(0x23CE) + " esc"
                   : (results.length + " matches")
             color: Tokens.textMuted
             font.family: Tokens.monoFamily
@@ -228,7 +287,11 @@ Rectangle {
                         color: Qt.darker(Tokens.accent, 3.0)
                         Label {
                             anchors.centerIn: parent
-                            text: modelData.kind === "app" ? "@" : ">"
+                            text: modelData.kind === "app" ? "@"
+                                : modelData.kind === "action" ? ">"
+                                : modelData.kind === "calc" ? "="
+                                : modelData.kind === "search" ? "?"
+                                : "?"
                             color: Tokens.accent
                             font.family: Tokens.monoFamily
                             font.pixelSize: Tokens.fontMd
@@ -245,7 +308,9 @@ Rectangle {
                     }
 
                     Label {
-                        text: modelData.exec
+                        text: modelData.kind === "search" ? "open"
+                            : modelData.kind === "calc" ? (modelData.secondary ? "err" : "entry")
+                            : modelData.exec
                         color: Tokens.textDim
                         font.family: Tokens.monoFamily
                         font.pixelSize: Tokens.fontXs
@@ -274,7 +339,21 @@ Rectangle {
     }
 
     function launch(item) {
-        if (!item || !item.exec) return;
+        if (!item) return;
+        if (item.kind === "calc") {
+            // Pressing enter on a calc result copies it to the clipboard
+            // via the clipboard via the GUI app; we don't ship our own
+            // clipboard helper yet, so echo back to the visible label.
+            return;
+        }
+        if (item.kind === "search") {
+            if (spawner && item.url) {
+                spawner.open_url(item.url);
+            }
+            root.close();
+            return;
+        }
+        if (!item.exec) return;
         console.log("selene-launcher: launching", item.kind, item.label, "->", item.exec);
         if (spawner) {
             if (item.kind === "action") {

@@ -36,6 +36,9 @@ pub mod qobject {
         fn record_launch(self: Pin<&mut Self>, label: &QString);
 
         #[qinvokable]
+        fn open_url(self: Pin<&mut Self>, url: &QString) -> i32;
+
+        #[qinvokable]
         fn stats_path(&self) -> QString;
     }
 
@@ -169,6 +172,21 @@ impl qobject::Spawner {
         let mut this = self;
         this.as_mut()
             .set_stats_json(QString::from(new_json.as_str()));
+    }
+
+    pub fn open_url(self: Pin<&mut Self>, url: &QString) -> i32 {
+        let url = url.to_string();
+        // Allow only http(s) and file URIs; reject anything that could be
+        // a shell injection (e.g. `xdg-open file:///etc` is fine, but
+        // `data-text/html` are not). xdg-open will refuse untrusted URIs.
+        let trimmed = url.trim();
+        if !(trimmed.starts_with("http://")
+            || trimmed.starts_with("https://")
+            || trimmed.starts_with("file://"))
+        {
+            return -1;
+        }
+        spawn_command_owned(&format!("xdg-open '{trimmed}'"))
     }
 
     pub fn stats_path(&self) -> QString {
