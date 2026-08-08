@@ -212,6 +212,36 @@ Rectangle {
                         Layout.topMargin: Tokens.spacingSm
                     }
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Tokens.spacingSm
+
+                        Label {
+                            text: "follow wallpaper"
+                            color: Tokens.textMuted
+                            font.family: Tokens.fontFamily
+                            font.pixelSize: Tokens.fontSm
+                            Layout.preferredWidth: 110
+                        }
+
+                        Switch {
+                            checked: config ? config.palette_follow_wallpaper : true
+                            enabled: config !== null
+                            onToggled: if (config) {
+                                config.set_value("theme.follow_wallpaper",
+                                                 checked ? "true" : "false")
+                            }
+                        }
+
+                        Label {
+                            text: "off = use only the colors above"
+                            color: Tokens.textDim
+                            font.family: Tokens.fontFamily
+                            font.pixelSize: Tokens.fontXs
+                            Layout.fillWidth: true
+                        }
+                    }
+
                     Repeater {
                         model: [
                             { label: "accent", key: "theme.accent" },

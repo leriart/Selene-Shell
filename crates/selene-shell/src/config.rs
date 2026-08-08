@@ -30,6 +30,7 @@ pub mod qobject {
         #[qproperty(QString, theme_accent)]
         #[qproperty(QString, theme_background)]
         #[qproperty(QString, theme_surface)]
+        #[qproperty(bool, palette_follow_wallpaper)]
         // Font
         #[qproperty(QString, font_family)]
         #[qproperty(i32, font_size)]
@@ -74,6 +75,7 @@ pub struct Settings {
     pub theme_accent: String,
     pub theme_background: String,
     pub theme_surface: String,
+    pub palette_follow_wallpaper: bool,
     pub font_family: String,
     pub font_size: i32,
     pub binds: Vec<String>,
@@ -96,6 +98,7 @@ impl Default for Settings {
             theme_accent: "#a78bfa".to_string(),
             theme_background: "#1a1b1e".to_string(),
             theme_surface: "#2a2b2e".to_string(),
+            palette_follow_wallpaper: true,
             font_family: "Inter".to_string(),
             font_size: 13,
             binds: vec![
@@ -120,6 +123,7 @@ pub struct ConfigRust {
     theme_accent: QString,
     theme_background: QString,
     theme_surface: QString,
+    palette_follow_wallpaper: bool,
     font_family: QString,
     font_size: i32,
     binds_json: QString,
@@ -263,6 +267,9 @@ fn load_from_path(path: &PathBuf) -> (Settings, QString, bool) {
         out.theme_accent = string_field(&t, "accent", &out.theme_accent);
         out.theme_background = string_field(&t, "background", &out.theme_background);
         out.theme_surface = string_field(&t, "surface", &out.theme_surface);
+        out.palette_follow_wallpaper = bool_field(
+            &t, "follow_wallpaper", out.palette_follow_wallpaper,
+        );
     }
     if let Some(f) = table_field(&table, "font") {
         out.font_family = string_field(&f, "family", &out.font_family);
@@ -293,6 +300,7 @@ fn apply_settings(this: Pin<&mut qobject::Config>, settings: &Settings, status: 
     this.as_mut().set_theme_accent(QString::from(settings.theme_accent.as_str()));
     this.as_mut().set_theme_background(QString::from(settings.theme_background.as_str()));
     this.as_mut().set_theme_surface(QString::from(settings.theme_surface.as_str()));
+    this.as_mut().set_palette_follow_wallpaper(settings.palette_follow_wallpaper);
     this.as_mut().set_font_family(QString::from(settings.font_family.as_str()));
     this.as_mut().set_font_size(settings.font_size);
     this.as_mut().set_binds_json(QString::from(
@@ -351,6 +359,7 @@ return {{
         accent = {theme_accent},
         background = {theme_background},
         surface = {theme_surface},
+        follow_wallpaper = {follow_wallpaper},
     }},
     font = {{
         family = {font_family},
@@ -369,6 +378,7 @@ return {{
         theme_accent = lua_quote(&s.theme_accent),
         theme_background = lua_quote(&s.theme_background),
         theme_surface = lua_quote(&s.theme_surface),
+        follow_wallpaper = s.palette_follow_wallpaper,
         font_family = lua_quote(&s.font_family),
         font_size = s.font_size,
         binds = lua_string_list(&s.binds),
@@ -389,6 +399,7 @@ fn current_settings(cfg: &qobject::Config) -> Settings {
         theme_accent: cfg.theme_accent().to_string(),
         theme_background: cfg.theme_background().to_string(),
         theme_surface: cfg.theme_surface().to_string(),
+        palette_follow_wallpaper: *cfg.palette_follow_wallpaper(),
         font_family: cfg.font_family().to_string(),
         font_size: *cfg.font_size(),
         binds: serde_json::from_str(&binds_json).unwrap_or_default(),
@@ -474,6 +485,10 @@ impl qobject::Config {
             "theme.accent" => this.as_mut().set_theme_accent(QString::from(v.as_str())),
             "theme.background" => this.as_mut().set_theme_background(QString::from(v.as_str())),
             "theme.surface" => this.as_mut().set_theme_surface(QString::from(v.as_str())),
+            "theme.follow_wallpaper" => {
+                this.as_mut()
+                    .set_palette_follow_wallpaper(matches!(v.as_str(), "true" | "1" | "yes"))
+            }
             "font.family" => this.as_mut().set_font_family(QString::from(v.as_str())),
             "font.size" => {
                 if let Ok(n) = v.parse::<i32>() {

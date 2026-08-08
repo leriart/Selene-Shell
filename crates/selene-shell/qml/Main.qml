@@ -120,6 +120,11 @@ ApplicationWindow {
 
     Connections {
         target: paletteBackend
+        // Disable the palette->Tokens wiring when the user has explicitly
+        // opted out (Config.palette_follow_wallpaper == false). The
+        // Config-driven connections below always apply, so the manual
+        // theme_* values take over in that mode.
+        enabled: configBackend === null || configBackend.palette_follow_wallpaper
         function onAccentChanged() {
             Tokens.accent = paletteBackend.accent;
         }
@@ -145,12 +150,8 @@ ApplicationWindow {
                 Tokens.fontFamily = configBackend.font_family;
         }
         function onTheme_accentChanged() {
-            if (configBackend.theme_accent && configBackend.theme_accent.length > 0) {
+            if (configBackend.theme_accent && configBackend.theme_accent.length > 0)
                 Tokens.accent = configBackend.theme_accent;
-                // Override the palette's wallpaper-derived accent so the
-                // user-facing settings choice wins until the next refresh.
-                paletteBackend.set_source(paletteBackend.source_path);
-            }
         }
         function onTheme_backgroundChanged() {
             if (configBackend.theme_background && configBackend.theme_background.length > 0)
@@ -163,8 +164,15 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        // Seed the font family from the actual config (not the singleton's
-        // default) so the user's choice in init.lua always wins.
+        // Seed theme tokens from Config first so a user who has set
+        // theme_* in init.lua gets their colors immediately rather than
+        // waiting for the first palette refresh.
+        if (configBackend.theme_accent && configBackend.theme_accent.length > 0)
+            Tokens.accent = configBackend.theme_accent;
+        if (configBackend.theme_background && configBackend.theme_background.length > 0)
+            Tokens.bg = configBackend.theme_background;
+        if (configBackend.theme_surface && configBackend.theme_surface.length > 0)
+            Tokens.surface = configBackend.theme_surface;
         if (configBackend.font_family && configBackend.font_family.length > 0)
             Tokens.fontFamily = configBackend.font_family;
     }
