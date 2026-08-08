@@ -84,14 +84,19 @@ and the existing milestones.
 
 ### Notifications
 
-- [ ] **D-Bus daemon** -- serve `org.freedesktop.Notifications` with the
-      proper reply shape (UINT32 id, GetCapabilities, GetServerInformation,
-      CloseNotification). The stub in `notifications.rs` currently only uses
-      `dbus` crate for an incoming message handler; full surface pending.
+- [x] **D-Bus daemon** -- done. `Notifier.start_dbus()` spawns a `zbus`
+      blocking connection serving `org.freedesktop.Notifications` on
+      `/org/freedesktop/Notifications`: `Notify` / `CloseNotification` /
+      `GetCapabilities` / `GetServerInformation`, emits `NotificationClosed`
+      and `ActionInvoked`, honors `replaces_id` / `urgency` hint /
+      `image-path` hint / actions / DND, and queues every store mutation back
+      to QML via `CxxQtThread`. DoNotQueue: fails loudly when another daemon
+      owns the name.
 - [ ] **Persistence layer upgrades** -- rotation, cap at N entries, optional
       SQLite or sled backend instead of JSON for cleaner queries.
-- [ ] **Action buttons** in the notification body -- `dbus`-spec passes
-      actions as ARRAY; need to wire the callback for invoked actions.
+- [x] **Action buttons** -- done. `actions` array is stored per entry
+      (key/label pairs), `NotificationPanel.qml` renders a button row, and
+      `Notifier.invoke_action(id, key)` emits `ActionInvoked` over the bus.
 
 ### Launcher / Spawner
 

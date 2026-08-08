@@ -7,6 +7,7 @@ Item {
 
     // Source of metrics/media data (a Rust Island QObject).
     property var islandSource: null
+    property var visualizer: null
 
     implicitWidth: cardExpanded ? 480 : 220
     implicitHeight: cardExpanded ? 160 : 36
@@ -53,6 +54,55 @@ Item {
                     color: root.islandSource && root.islandSource.media_playing
                            ? Tokens.success : Tokens.textDim
                     Layout.alignment: Qt.AlignVCenter
+                }
+
+                // Live audio bars from cava, only while something plays.
+                Item {
+                    id: vizBox
+                    Layout.preferredWidth: 56
+                    Layout.preferredHeight: 18
+                    Layout.alignment: Qt.AlignVCenter
+                    visible: root.visualizer !== null && root.visualizer.running
+                             && root.islandSource && root.islandSource.media_playing
+
+                    property var bars: []
+
+                    Connections {
+                        target: root.visualizer
+                        function onBars_jsonChanged() {
+                            if (!root.visualizer) return;
+                            try {
+                                vizBox.bars = JSON.parse(root.visualizer.bars_json || "[]");
+                            } catch (e) {
+                                vizBox.bars = [];
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        spacing: 1
+
+                        Repeater {
+                            model: vizBox.bars
+
+                            delegate: Rectangle {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.minimumHeight: 1
+                                Layout.maximumHeight: 18
+                                Layout.preferredHeight: Math.max(1, (modelData / 100.0) * 18)
+                                Layout.alignment: Qt.AlignBottom
+                                color: Tokens.accent
+                                radius: 1
+
+                                Behavior on Layout.preferredHeight {
+                                    NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Label {

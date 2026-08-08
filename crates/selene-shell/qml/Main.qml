@@ -93,6 +93,12 @@ ApplicationWindow {
         Component.onCompleted: audioBackend.refresh()
     }
 
+    Visualizer {
+        id: visualizerBackend
+
+        Component.onCompleted: visualizerBackend.start()
+    }
+
     Network {
         id: networkBackend
 
@@ -226,6 +232,7 @@ ApplicationWindow {
             id: islandWidget
             Layout.alignment: Qt.AlignHCenter
             islandSource: islandBackend
+            visualizer: visualizerBackend
         }
 
         Rectangle {

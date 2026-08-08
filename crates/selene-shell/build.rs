@@ -78,6 +78,7 @@ fn main() {
         "src/notifications.rs",
         "src/palette.rs",
         "src/spawner.rs",
+        "src/visualizer.rs",
         "src/wallpaper.rs",
     ])
     .build();
