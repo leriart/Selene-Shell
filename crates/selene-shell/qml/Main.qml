@@ -25,28 +25,16 @@ ApplicationWindow {
 
     function applyScreenshotPanel(name) {
         if (!name) return;
+        const prefill = (name === "launcher" && __launcherQuery.length > 0)
+                      ? __launcherQuery : "";
         switch (name) {
-        case "launcher":  launcher.open();  break;
+        case "launcher":  launcher.open(prefill); break;
         case "notif":     notifierPanel.open(); break;
         case "walls":     wallpaperPicker.open(); break;
         case "settings":  settingsPanel.open(); break;
         case "audio":     audioPanel.open(); break;
         case "net":       networkPanel.open(); break;
         case "bt":        bluetoothPanel.open(); break;
-        }
-        // Pre-fill the launcher input AFTER open() so the `input.text = ""`
-        // clear in open() doesn't undo the assignment. A single-shot Timer
-        // runs on the next event-loop iteration, after the launcher's
-        // Component.onCompleted finishes, so the bindings are alive.
-        if (name === "launcher" && __launcherQuery.length > 0) {
-            const q = __launcherQuery;
-            const t = Qt.createQmlObject(
-                'import QtQml; Timer { interval: 1; running: true; repeat: false }',
-                root, "launcher-prefill");
-            t.triggered.connect(function() {
-                launcher.input.text = q;
-                launcher.update();
-            });
         }
     }
 

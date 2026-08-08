@@ -8,12 +8,13 @@ Rectangle {
     id: root
 
     // Public surface
-    function open() {
-        input.text = "";
+    function open(prefill) {
+        input.text = (prefill === undefined || prefill === null) ? "" : prefill;
         visible = true;
         card.opacity = 1.0;
         card.scale = 1.0;
-        input.forceActiveFocus();
+        if (input.text.length > 0) update();
+        if (input.text.length === 0) input.forceActiveFocus();
     }
     function close() {
         card.opacity = 0.0;
@@ -194,8 +195,8 @@ Rectangle {
     Rectangle {
         id: card
         anchors.centerIn: parent
-        width: Math.min(720, root.width * 0.72)
-        height: Math.min(440, root.height * 0.55)
+        width: Math.min(760, root.width * 0.66)
+        height: Math.min(480, root.height * 0.62)
         radius: Tokens.radiusLg
         color: Tokens.surface
         border.color: Tokens.border

@@ -233,5 +233,115 @@ Rectangle {
                 }
             }
         }
+
+        BarSeparator {}
+
+        // Power button (Caelestia `power` entry). Pings a small session
+        // menu popup that drives the existing Island.qinvokables. We
+        // tap into the Island directly because it already owns the
+        // loginctl / systemctl plumbing.
+        Item {
+            id: powerBtn
+            Layout.preferredHeight: 22
+            Layout.preferredWidth: 22
+            Layout.alignment: Qt.AlignVCenter
+
+            property bool hover: false
+            Behavior on opacity { NumberAnimation { duration: Tokens.durationFast } }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 11
+                color: parent.hover ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+            }
+
+            Label {
+                anchors.centerIn: parent
+                text: "\u23FF"   // power symbol
+                color: Tokens.text
+                font.family: Tokens.fontFamily
+                font.pixelSize: Tokens.fontMd
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onEntered: powerBtn.hover = true
+                onExited: powerBtn.hover = false
+                onClicked: sessionMenu.open()
+            }
+        }
+    }
+
+    // Session menu popup -- lock / suspend / reboot / poweroff / logout.
+    // Mirrors Caelestia's `session` module. Side-bottom anchored so it
+    // doesn't compete with the launcher or the panels.
+    Popup {
+        id: sessionMenu
+        focus: true
+        modal: true
+        x: parent.width - width - Tokens.barMargin
+        y: parent.height - height - Tokens.barMargin - 38
+        padding: 0
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+
+        background: Rectangle {
+            color: Qt.rgba(Tokens.surface.r, Tokens.surface.g, Tokens.surface.b, 0.95)
+            radius: Tokens.radiusLg
+            border.color: Qt.rgba(1, 1, 1, Tokens.hairlineAlpha)
+            border.width: 1
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 0
+            Item { Layout.preferredHeight: 8; Layout.fillWidth: true }
+            Repeater {
+                model: [
+                    { label: "Lock",      qaction: "lock" },
+                    { label: "Suspend",   qaction: "suspend" },
+                    { label: "Logout",    qaction: "logout" },
+                    { label: "Reboot",    qaction: "reboot" },
+                    { label: "Power off", qaction: "poweroff" }
+                ]
+                delegate: Rectangle {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 36
+                    color: hoverArea.containsMouse
+                           ? Qt.rgba(1, 1, 1, 0.06)
+                           : "transparent"
+                    radius: 0
+
+                    Label {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.leftMargin: Tokens.spacingLg
+                        text: parent.modelData.label
+                        color: Tokens.text
+                        font.family: Tokens.fontFamily
+                        font.pixelSize: Tokens.fontSm
+                    }
+                    MouseArea {
+                        id: hoverArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            sessionMenu.close();
+                            if (!island) return;
+                            switch (parent.modelData.qaction) {
+                            case "lock":     island.lock();     break;
+                            case "suspend":  island.suspend();  break;
+                            case "logout":   island.logout();   break;
+                            case "reboot":   island.reboot();   break;
+                            case "poweroff": island.poweroff(); break;
+                            }
+                        }
+                    }
+                }
+            }
+            Item { Layout.preferredHeight: 8; Layout.fillWidth: true }
+        }
     }
 }
