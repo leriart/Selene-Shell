@@ -311,6 +311,21 @@ Rectangle {
                     onClicked: notifier.clear()
                 }
 
+                Label {
+                    text: "max"
+                    color: Tokens.textMuted
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontXs
+                }
+
+                SpinBox {
+                    from: 50; to: 2000; stepSize: 50
+                    editable: true
+                    value: notifier && notifier.history_max > 0 ? notifier.history_max : 200
+                    enabled: notifier !== null
+                    onValueModified: if (notifier) notifier.apply_history_max(value)
+                }
+
                 Item { Layout.fillWidth: true }
             }
         }

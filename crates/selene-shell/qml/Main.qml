@@ -2,16 +2,53 @@ import QtQuick
 import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 
 import io.github.selene.shell
 
 ApplicationWindow {
     id: root
     visible: true
-    width: 720
-    height: 480
+    width: typeof __seleneRenderSize !== "undefined" ? __seleneRenderSize.width : 720
+    height: typeof __seleneRenderSize !== "undefined" ? __seleneRenderSize.height : 480
     title: "Selene -- Rust <-> Hyprland <-> QML"
     color: Tokens.bg
+
+    // Optional screenshot mode: when main.cpp is invoked with
+    // `--show=<panel>`, it sets this context property and we open the
+    // matching panel before the QQuickWindow snapshot fires.
+    property string screenshotPanel: typeof __seleneScreenshotPanel !== "undefined"
+                                    ? __seleneScreenshotPanel : ""
+    property string __launcherQuery: typeof __seleneLauncherQuery !== "undefined"
+                                    ? __seleneLauncherQuery : ""
+    onScreenshotPanelChanged: console.log("selene: screenshotPanel =", screenshotPanel)
+
+    function applyScreenshotPanel(name) {
+        if (!name) return;
+        switch (name) {
+        case "launcher":  launcher.open();  break;
+        case "notif":     notifierPanel.open(); break;
+        case "walls":     wallpaperPicker.open(); break;
+        case "settings":  settingsPanel.open(); break;
+        case "audio":     audioPanel.open(); break;
+        case "net":       networkPanel.open(); break;
+        case "bt":        bluetoothPanel.open(); break;
+        }
+        // Pre-fill the launcher input AFTER open() so the `input.text = ""`
+        // clear in open() doesn't undo the assignment. A single-shot Timer
+        // runs on the next event-loop iteration, after the launcher's
+        // Component.onCompleted finishes, so the bindings are alive.
+        if (name === "launcher" && __launcherQuery.length > 0) {
+            const q = __launcherQuery;
+            const t = Qt.createQmlObject(
+                'import QtQml; Timer { interval: 1; running: true; repeat: false }',
+                root, "launcher-prefill");
+            t.triggered.connect(function() {
+                launcher.input.text = q;
+                launcher.update();
+            });
+        }
+    }
 
     // Background wallpaper renders inside the ApplicationWindow. Layer-shell
     // support would push it underneath the compositor's windows; see TODO.md.
@@ -175,6 +212,13 @@ ApplicationWindow {
             Tokens.surface = configBackend.theme_surface;
         if (configBackend.font_family && configBackend.font_family.length > 0)
             Tokens.fontFamily = configBackend.font_family;
+        // Open the requested panel for headless screenshot capture.
+        // Use a Timer so the Window is fully realized and the panel
+        // components are constructed before we ask them to open.
+        if (screenshotPanel.length > 0) {
+            const timer = Qt.createQmlObject('import QtQml; Timer { interval: 250; running: true; onTriggered: { applyScreenshotPanel(screenshotPanel); } }',
+                                              root, "screenshot-timer");
+        }
     }
 
     Timer {
@@ -223,293 +267,31 @@ ApplicationWindow {
         onTriggered: bridge.refresh()
     }
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: Tokens.barMargin
-        spacing: Tokens.spacingMd
+    // Caelestia-style chrome: just the floating bar at the top and a
+    // small island pill at the bottom-right. The rest of the desktop
+    // is the wallpaper -- the debug grid + button bar are gone in
+    // favour of the launcher overlay and the JSON-driven panels.
+    Bar {
+        id: bar
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin: Tokens.barMargin
+        bridge: bridge
+        island: islandBackend
+        network: networkBackend
+        bluetooth: bluetoothBackend
+        audio: audioBackend
+        backdropSource: wallpaper
+    }
 
-        Bar {
-            id: bar
-            Layout.fillWidth: true
-            bridge: bridge
-            launcher: launcher
-            island: islandBackend
-        }
-
-        IslandPill {
-            id: islandWidget
-            Layout.alignment: Qt.AlignHCenter
-            islandSource: islandBackend
-            visualizer: visualizerBackend
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            color: Tokens.surface
-            radius: Tokens.radiusMd
-            border.color: Tokens.border
-            border.width: 1
-
-            GridLayout {
-                anchors.fill: parent
-                anchors.margins: Tokens.spacingLg
-                columns: 2
-                columnSpacing: Tokens.spacingLg
-                rowSpacing: Tokens.spacingSm
-
-                Label {
-                    text: "cpu"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    text: islandBackend.cpu_percent.toFixed(1) + "%  (load " +
-                          islandBackend.load_avg_1.toFixed(2) + ")"
-                    color: Tokens.text
-                    font.family: Tokens.monoFamily
-                    font.pixelSize: Tokens.fontMd
-                }
-
-                Label {
-                    text: "ram"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    text: islandBackend.ram_used_mb + " / " + islandBackend.ram_total_mb + " MB"
-                    color: Tokens.text
-                    font.family: Tokens.monoFamily
-                    font.pixelSize: Tokens.fontMd
-                }
-
-                Label {
-                    text: "battery"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    text: islandBackend.battery_present
-                          ? (islandBackend.battery_percent + "%  " + islandBackend.battery_status)
-                          : "none"
-                    color: Tokens.text
-                    font.family: Tokens.monoFamily
-                    font.pixelSize: Tokens.fontMd
-                }
-
-                Label {
-                    text: "media"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: (islandBackend.media_playing ? "> " : "|| ") +
-                          islandBackend.media_title + " - " + islandBackend.media_artist +
-                          (islandBackend.media_player.length > 0
-                           ? "  [" + islandBackend.media_player + "]" : "")
-                    color: Tokens.text
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                    elide: Text.ElideRight
-                }
-
-                Label {
-                    text: "active workspace"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: bridge.active_workspace_id + "  " + (bridge.active_workspace_name || "(none)")
-                    color: Tokens.accent
-                    font.family: Tokens.monoFamily
-                    font.pixelSize: Tokens.fontMd
-                    font.bold: true
-                }
-
-                Label {
-                    text: "workspace count"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    text: bridge.workspace_count
-                    color: Tokens.accent
-                    font.family: Tokens.monoFamily
-                    font.pixelSize: Tokens.fontMd
-                    font.bold: true
-                }
-
-                Label {
-                    text: "active window"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: bridge.active_window_class || "(none)"
-                    color: Tokens.text
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontMd
-                }
-
-                Label {
-                    text: "title"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: bridge.active_window_title || "-"
-                    color: Tokens.text
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontMd
-                    elide: Text.ElideRight
-                }
-
-                Label {
-                    text: "hyprland"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: bridge.hyprland_status
-                    color: bridge.connected ? Tokens.success : Tokens.danger
-                    font.family: Tokens.monoFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-
-                Label {
-                    text: "config"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    Layout.fillWidth: true
-                    text: (configBackend.defaults_used ? "defaults" : "loaded") + "  " +
-                          (configBackend.status || "")
-                    color: configBackend.defaults_used ? Tokens.danger : Tokens.textMuted
-                    font.family: Tokens.monoFamily
-                    font.pixelSize: Tokens.fontXs
-                    elide: Text.ElideRight
-                }
-
-                Label {
-                    text: "panel height"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    text: String(configBackend.panel_height) + " px  (" +
-                          configBackend.panel_position + ", " +
-                          (configBackend.panel_transparent ? "transparent" : "opaque") + ")"
-                    color: Tokens.text
-                    font.family: Tokens.monoFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-
-                Label {
-                    text: "accent"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Rectangle {
-                    Layout.preferredHeight: 18
-                    Layout.preferredWidth: 56
-                    radius: 4
-                    color: configBackend.theme_accent
-                    border.color: Tokens.border
-                    border.width: 1
-                }
-
-                Item { Layout.columnSpan: 2; Layout.fillHeight: true }
-
-                Label {
-                    text: "counter"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                }
-                Label {
-                    text: bridge.counter + " -- " + bridge.greeting
-                    color: Tokens.accent
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontMd
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Tokens.spacingSm
-
-            TextField {
-                id: nameField
-                Layout.fillWidth: true
-                placeholderText: "Your name"
-            }
-
-            Button {
-                text: "Greet"
-                onClicked: bridge.greeting = bridge.greet(nameField.text)
-            }
-            Button {
-                text: "+"
-                onClicked: bridge.increment()
-            }
-            Button {
-                text: "Refresh"
-                onClicked: bridge.refresh()
-            }
-            Button {
-                text: "Launcher"
-                onClicked: launcher.open()
-            }
-            Button {
-                text: "Notif"
-                onClicked: notifierPanel.toggle()
-            }
-            Button {
-                text: "Walls"
-                onClicked: wallpaperPicker.toggle()
-            }
-            Button {
-                text: "Settings"
-                onClicked: settingsPanel.toggle()
-            }
-            Button {
-                text: "Audio"
-                onClicked: audioPanel.toggle()
-            }
-            Button {
-                text: "Net"
-                onClicked: networkPanel.toggle()
-            }
-            Button {
-                text: "BT"
-                onClicked: bluetoothPanel.toggle()
-            }
-            Button {
-                text: "Quit"
-                onClicked: Qt.quit()
-            }
-        }
+    IslandPill {
+        id: islandWidget
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: Tokens.barMargin
+        anchors.bottomMargin: Tokens.barMargin
+        islandSource: islandBackend
+        visualizer: visualizerBackend
     }
 
     Launcher {
@@ -521,6 +303,7 @@ ApplicationWindow {
     }
 
     Item {
+        id: keys
         anchors.fill: parent
         focus: true
         Keys.onPressed: function(event) {

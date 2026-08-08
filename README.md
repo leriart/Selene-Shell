@@ -16,6 +16,29 @@
   <img alt="Selene shell running" src="assets/screenshot-shell.png" width="680" />
 </p>
 
+## Surfaces
+
+<p align="center">
+  <img src="assets/panel-launcher.png"  width="420" alt="Launcher overlay" />
+  <img src="assets/panel-notif.png"     width="420" alt="Notification panel" />
+</p>
+<p align="center">
+  <img src="assets/panel-walls.png"     width="420" alt="Wallpaper picker" />
+  <img src="assets/panel-settings.png"  width="420" alt="Settings panel" />
+</p>
+<p align="center">
+  <img src="assets/panel-audio.png"     width="420" alt="Audio quick settings" />
+  <img src="assets/panel-net.png"       width="420" alt="Network quick settings" />
+</p>
+<p align="center">
+  <img src="assets/panel-bt.png"        width="420" alt="Bluetooth quick settings" />
+</p>
+
+Each panel screenshot is captured headless via
+`selene-shell --screenshot <path> --show <panel> --delay 4000` and lives in
+the `assets/` folder. See [`assets/README.md`](assets/README.md) for the
+batch script that regenerates all of them.
+
 Selene is a modern, visually refined shell for [Hyprland](https://hyprland.org) and the
 spiritual successor to [NothingLess](https://github.com/leriart/NothingLess). Its user
 interface is crafted in QML, backed by a high-performance Rust core, and scriptable in

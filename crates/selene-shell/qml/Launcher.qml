@@ -69,6 +69,25 @@ Rectangle {
     property string calcError: ""
     property string searchUrl: ""
 
+    // Curated emoji bank for the `:q` prefix picker. Keeping the bank
+    // small and in-memory keeps the picker snappy and avoids chardata
+    // surprises; common-but-not-bizarre symbols win out.
+    readonly property var emojiBank: [
+        "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇",
+        "🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚",
+        "😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🥸",
+        "🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️",
+        "😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡",
+        "🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓",
+        "🤗","🤔","🤭","🤫","🤥","😶","😐","😑","😬","🙄",
+        "👍","👎","👌","✌️","🤞","🤟","🤘","🤙","👈","👉",
+        "👆","👇","☝️","✋","🤚","🖐","🖖","👋","🤝","🙏",
+        "🔥","⭐","✨","💫","💥","💯","💢","💨","💦","💤",
+        "🚀","🌟","🎉","🎊","🎈","🎂","🎁","🎵","🎶","🎮",
+        "❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔",
+        "👍","✅","❌","❓","❗","💡","🔒","🔓","🔑","🛠"
+    ]
+
     function update() {
         const query = input.text;
         const trimmed = query.trim();
@@ -76,6 +95,7 @@ Rectangle {
         const isApp = trimmed.startsWith("@");
         const isCalc = trimmed.startsWith("=");
         const isSearch = trimmed.startsWith("?");
+        const isEmoji = trimmed.startsWith(":");
         const needle = (
             isAction ? trimmed.slice(1) :
             isApp    ? trimmed.slice(1) :
@@ -134,6 +154,24 @@ Rectangle {
             return;
         }
 
+        // == :q emoji picker ===============================================
+        if (isEmoji) {
+            // Filter the bank by a substring match on the second character
+            // when the user types past the colon. Names are unavailable
+            // without an inline DB, so we only match by emoji itself.
+            const lower = needle.toLowerCase();
+            const out = [];
+            for (let i = 0; i < emojiBank.length; ++i) {
+                const e = emojiBank[i];
+                if (lower.length === 0 || e.toLowerCase().indexOf(lower) !== -1) {
+                    out.push({ kind: "emoji", label: e, primary: e });
+                    if (out.length >= 60) break;
+                }
+            }
+            results = out;
+            return;
+        }
+
         // == @ apps / > actions / fuzzy ====================================
         const bag = isAction ? actionEntries : appEntries;
         const out = [];
@@ -181,7 +219,7 @@ Rectangle {
             height: 56
             leftPadding: Tokens.spacingLg
             rightPadding: Tokens.spacingLg
-            placeholderText: "@ app   > action   = calc   ? web search"
+            placeholderText: "@ app   > action   = calc   ? web search   : emoji"
             placeholderTextColor: Tokens.textMuted
             color: Tokens.text
             background: Rectangle {
@@ -224,7 +262,7 @@ Rectangle {
             anchors.topMargin: 18
             anchors.rightMargin: Tokens.spacingLg
             text: input.text.length === 0
-                  ? "@/>/=/?   " + String.fromCharCode(0x2191, 0x2193) + " " + String.fromCharCode(0x23CE) + " esc"
+                  ? String.fromCharCode(0x2191, 0x2193) + " " + String.fromCharCode(0x23CE) + " esc"
                   : (results.length + " matches")
             color: Tokens.textMuted
             font.family: Tokens.monoFamily
@@ -291,6 +329,7 @@ Rectangle {
                                 : modelData.kind === "action" ? ">"
                                 : modelData.kind === "calc" ? "="
                                 : modelData.kind === "search" ? "?"
+                                : modelData.kind === "emoji" ? ":"
                                 : "?"
                             color: Tokens.accent
                             font.family: Tokens.monoFamily
@@ -300,16 +339,21 @@ Rectangle {
 
                     Label {
                         Layout.fillWidth: true
-                        text: modelData.label
-                        color: Tokens.text
-                        font.family: Tokens.fontFamily
-                        font.pixelSize: Tokens.fontMd
+                        text: modelData.kind === "emoji" ? "emoji " + modelData.label
+                            : modelData.label
+                        color: modelData.kind === "emoji" ? Tokens.text
+                            : Tokens.text
+                        font.family: modelData.kind === "emoji" ? Tokens.fontFamily
+                            : Tokens.fontFamily
+                        font.pixelSize: modelData.kind === "emoji" ? Tokens.fontXl
+                            : Tokens.fontMd
                         elide: Text.ElideRight
                     }
 
                     Label {
                         text: modelData.kind === "search" ? "open"
                             : modelData.kind === "calc" ? (modelData.secondary ? "err" : "entry")
+                            : modelData.kind === "emoji" ? "copy"
                             : modelData.exec
                         color: Tokens.textDim
                         font.family: Tokens.monoFamily
@@ -349,6 +393,13 @@ Rectangle {
         if (item.kind === "search") {
             if (spawner && item.url) {
                 spawner.open_url(item.url);
+            }
+            root.close();
+            return;
+        }
+        if (item.kind === "emoji") {
+            if (spawner && item.primary) {
+                spawner.copy_to_clipboard(item.primary);
             }
             root.close();
             return;

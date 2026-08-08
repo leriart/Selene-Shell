@@ -20,6 +20,7 @@ pub mod qobject {
         #[qproperty(bool, dnd_enabled)]
         #[qproperty(bool, dbus_connected)]
         #[qproperty(i32, unread_count)]
+        #[qproperty(i32, history_max)]
         type Notifier = super::NotifierRust;
 
         #[qinvokable]
@@ -54,6 +55,9 @@ pub mod qobject {
         fn close_notification(self: Pin<&mut Self>, id: i32);
 
         #[qinvokable]
+        fn apply_history_max(self: Pin<&mut Self>, max: i32);
+
+        #[qinvokable]
         fn start_dbus(self: Pin<&mut Self>);
 
         #[qinvokable]
@@ -66,6 +70,8 @@ pub mod qobject {
     impl cxx_qt::Threading for Notifier {}
 }
 
+const DEFAULT_HISTORY_MAX: i32 = 200;
+
 #[derive(Default)]
 pub struct NotifierRust {
     notifications_json: QString,
@@ -73,6 +79,7 @@ pub struct NotifierRust {
     dnd_enabled: bool,
     dbus_connected: bool,
     unread_count: i32,
+    history_max: i32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -99,6 +106,7 @@ pub struct Store {
     pub storage_dir: Option<std::path::PathBuf>,
     pub dbus_connected: bool,
     pub dbus_error: Option<String>,
+    pub history_max_override: i32,
 }
 
 type SharedStore = Arc<Mutex<Store>>;
@@ -228,6 +236,16 @@ fn store_push(
         *existing = entry;
     } else {
         store.entries.push(entry);
+    }
+    // FIFO cap -- drop oldest entries when the history max is exceeded.
+    let max = if store.history_max_override > 0 {
+        store.history_max_override
+    } else {
+        DEFAULT_HISTORY_MAX
+    };
+    if max > 0 && store.entries.len() > max as usize {
+        let drop = store.entries.len() - max as usize;
+        store.entries.drain(0..drop);
     }
     let count = unread_count(&store);
     let entries = entries_json(&store);
@@ -543,11 +561,29 @@ impl qobject::Notifier {
         };
         store.storage_dir = None;
         ensure_storage_dir(&mut store);
+        // Apply the cap on disk reads so a historic file with thousands of
+        // entries doesn't push the panel into the disk I/O ceiling.
+        let max = if store.history_max_override > 0 {
+            store.history_max_override
+        } else {
+            DEFAULT_HISTORY_MAX
+        } as usize;
+        if max > 0 && store.entries.len() > max {
+            let drop = store.entries.len() - max;
+            store.entries.drain(0..drop);
+        }
         let count = unread_count(&store);
         let entries = entries_json(&store);
         let status = status_json(&store);
         let dnd = store.dnd;
         let dbus_connected = store.dbus_connected;
+        // Reflect the effective cap on the UI so the Settings panel can
+        // surface it.
+        let current_max = if store.history_max_override > 0 {
+            store.history_max_override
+        } else {
+            DEFAULT_HISTORY_MAX
+        };
         drop(store);
 
         let mut this = self;
@@ -556,6 +592,22 @@ impl qobject::Notifier {
         this.as_mut().set_notifications_json(entries);
         this.as_mut().set_status_json(status);
         this.as_mut().set_unread_count(count);
+        this.as_mut().set_history_max(current_max);
+    }
+
+    pub fn apply_history_max(self: Pin<&mut Self>, max: i32) {
+        let clamped = max.clamp(0, 10_000);
+        if let Ok(mut store) = shared().lock() {
+            store.history_max_override = clamped;
+            // Apply immediately: drop oldest beyond the new cap.
+            let limit = if clamped > 0 { clamped as usize } else { DEFAULT_HISTORY_MAX as usize };
+            if store.entries.len() > limit {
+                let drop = store.entries.len() - limit;
+                store.entries.drain(0..drop);
+            }
+        }
+        let mut this = self;
+        this.as_mut().set_history_max(clamped);
     }
 
     pub fn close_notification(self: Pin<&mut Self>, id: i32) {

@@ -6,6 +6,8 @@ fn main() {
         "qml/Main.qml".into(),
         QmlFile::from("qml/Tokens.qml").singleton(true),
         "qml/Bar.qml".into(),
+        "qml/BarSeparator.qml".into(),
+        "qml/StatusDot.qml".into(),
         "qml/IslandPill.qml".into(),
         "qml/Launcher.qml".into(),
         "qml/NotificationPanel.qml".into(),
@@ -26,6 +28,12 @@ fn main() {
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/Bar.qml").alias("qml/Bar.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/BarSeparator.qml").alias("qml/BarSeparator.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/StatusDot.qml").alias("qml/StatusDot.qml"),
         ))
         .resource(QResource::new().file(
             QResourceFile::new("qml/IslandPill.qml").alias("qml/IslandPill.qml"),

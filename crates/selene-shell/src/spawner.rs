@@ -39,6 +39,9 @@ pub mod qobject {
         fn open_url(self: Pin<&mut Self>, url: &QString) -> i32;
 
         #[qinvokable]
+        fn copy_to_clipboard(self: Pin<&mut Self>, text: &QString) -> i32;
+
+        #[qinvokable]
         fn stats_path(&self) -> QString;
     }
 
@@ -187,6 +190,48 @@ impl qobject::Spawner {
             return -1;
         }
         spawn_command_owned(&format!("xdg-open '{trimmed}'"))
+    }
+
+    pub fn copy_to_clipboard(self: Pin<&mut Self>, text: &QString) -> i32 {
+        let text = text.to_string();
+        // Try the Wayland tool first, then X11's, then fall back to
+        // xsel. The first hit wins; failures are silent.
+
+        let Some(home) = std::env::var_os("HOME") else {
+            return -1;
+        };
+        let home = home.to_string_lossy().to_string();
+        let staging = format!("{home}/.local/share/selene/clipboard.txt");
+        if let Some(parent) = std::path::Path::new(&staging).parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if std::fs::write(&staging, &text).is_err() {
+            return -1;
+        }
+
+        // wl-copy is the canonical Wayland tool; falls back to xclip on
+        // X11 / xsel as a last resort. We don't shell-quote `text` --
+        // the file path is the argument, not the contents.
+        for cmd in &["wl-copy", "xclip", "xsel"] {
+            let argv: Vec<&str> = match *cmd {
+                "wl-copy" => vec!["wl-copy", "--type", "text/plain", "<", staging.as_str()],
+                "xclip" => vec!["xclip", "-selection", "clipboard", staging.as_str()],
+                "xsel" => vec!["xsel", "--clipboard", "--input", staging.as_str()],
+                _ => continue,
+            };
+            if let Some((first, rest)) = argv.split_first() {
+                let attempt = Command::new(first)
+                    .args(rest)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .spawn();
+                if attempt.is_ok() {
+                    return 0;
+                }
+            }
+        }
+        -1
     }
 
     pub fn stats_path(&self) -> QString {
