@@ -17,10 +17,11 @@ and the existing milestones.
       surface / background, and pushes them into the `Tokens` singleton via
       QML bindings. Reuses the same kind of dominant-color extraction cava-bg
       already does; embedded in this repo (no external process).
-- [ ] **Manual palette override** so users without a matching wallpaper can pin
-      the palette to a fixed set of colors. (defaults_used flag in `Config`
-      + `Palette` falls back to the accent palette when no wallpaper is
-      present, which IS the manual override -- a real picker UI is still TODO.)
+- [x] **Manual palette override** -- done. `Config.palette_follow_wallpaper`
+      (default true) gates the palette->Tokens wiring in Main.qml. When
+      false, the palette still runs but doesn't paint Tokens; only the
+      theme_* values do. The Settings panel grows a Switch next to the
+      color editors.
 - [ ] **Caelestia visual pass 2** -- ShaderEffectSource backdrop blur, screen
       rounded corners overlay, wallpaper-derived accent on the panel/launcher.
 - [x] **Theme runtime override** -- `Palette` updates push into `Tokens` via
@@ -39,9 +40,11 @@ and the existing milestones.
 
 ### Audio / visualizer integration
 
-- [ ] **CAVA bridge** -- spawn an internal `cava` process, pipe its raw output
-      into Selene and feed the magnitudes into the same `Palette` engine so
-      whole shell tints to the current music energy.
+- [x] **CAVA bridge** -- done. `Visualizer` QObject spawns `cava -p` with
+      a generated raw ASCII config, parses each `v;v;...;` frame on a
+      reader thread, and pushes `bars_json` + `peak` into the QML via
+      the cxx-qt queue at ~15fps. The IslandPill collapsed view renders
+      the bars while `media_playing == true`.
 - [ ] **cava-bg IPC** -- if cava-bg stays external (it is today), add a
       JSON/socket palette export so Selene can consume it without compiling in
       the visualizer.
@@ -108,8 +111,10 @@ and the existing milestones.
 - [x] **Detached spawn via `setsid --fork`** -- children land in their own
       session and outlive the shell process; falls back to plain spawn when
       `setsid` is absent.
-- [ ] **Hax-style prefixes** beyond `@` and `>` -- `=` calculator, `?` web
-      search, `:` emoji picker, `/` bookmark search.
+- [x] **Hax-style prefixes** -- `=` calculator (sanitized JS expression via
+      `new Function`) and `?` web search (DuckDuckGo URL via
+      `Spawner.open_url`, dispatched to `xdg-open`) shipped. `:` emoji
+      picker and `/` bookmark search still pending.
 - [x] **App search ranking by usage** -- `Spawner.record_launch(label)` writes
       to `~/.local/share/selene/launcher-stats.json`; on `refresh()` the
       `apps_json` is sorted by frequency (desc) then alphabetical; the
@@ -152,10 +157,13 @@ and the existing milestones.
 
 ### Documentation
 
-- [ ] **Screenshots in README** -- Bar, Launcher, NotificationPanel, expanded
-      Island, the palette gradient driving Tokens.
-- [ ] **AGENTS.md** for AI agents describing the file layout, build steps,
-      do/don't of the cxx-qt bridge, and how to add a new QObject.
+- [x] **Screenshots in README** -- `selene-shell --screenshot <path>` grabs
+      the QQuickWindow to PNG and exits; assets/screenshot-shell.png shows
+      the live shell (Bar, IslandPill, debug grid, logo) and is regenerated
+      via `QT_QPA_PLATFORM=offscreen`. Per-panel screenshots are still TODO.
+- [x] **AGENTS.md** -- shipped. Captures the post-reorganize layout, the
+      dual CMake/Corrosion build flow, the cxx-qt bridge do/don't, the
+      qrc asset convention, and the signal/threading patterns.
 - [ ] **User-facing wiki** (private), or `docs/` folder with:
       - per-surface screenshots
       - layer-shell quirks
@@ -197,6 +205,27 @@ Shipped in chronological order (newest at top).
 - [x] **`WallpaperPicker.qml`** -- thumbnail grid over
       `Wallpaper.paths_json`, prev/next/rescan, click-to-pick. 2026-08-07.
 - [x] **Bar clock + battery chip** fed by `Island`. 2026-08-07.
+- [x] **Cava visualizer** -- `Visualizer` QObject spawns `cava -p` with a
+      generated raw ASCII config, parses each `v;v;...;` frame on a
+      reader thread, and pushes `bars_json` + `peak` into the QML via
+      the cxx-qt queue at ~15fps. The IslandPill collapsed view shows
+      the bars while `media_playing == true`. 2026-08-08.
+- [x] **Launcher prefixes (Hax-style)** -- `=` calculator (sanitized JS
+      expression via `new Function`) and `?` web search (DuckDuckGo URL
+      via `Spawner.open_url`, dispatched to `xdg-open`). 2026-08-08.
+- [x] **Manual palette override** -- `Config.palette_follow_wallpaper`
+      (default true) gates the palette->Tokens wiring in Main.qml so a
+      user who picks custom theme_* values can stop the wallpaper from
+      overriding them. 2026-08-08.
+- [x] **`--screenshot` / `--delay` flags** -- `selene-shell --screenshot
+      <path>` graba `QQuickWindow::grabWindow()` después de N ms y sale.
+      Habilita screenshots en CI / docs sin sesión Wayland. 2026-08-08.
+- [x] **`AGENTS.md`** -- project guide for AI agents covering the
+      post-reorganize layout, build flow, do/don't, where to look. 2026-08-08.
+- [x] **`selene-shell` reorganized** -- Cargo workspace at the repo root,
+      single member at `crates/selene-shell/`, `src/main.cpp` for the
+      executable, `scripts/{install,cli}.sh`, `assets/` for the brand
+      logos (bundled into the binary via qrc), `docs/` placeholder. 2026-08-07.
 
 - [x] **Notification center** with JSON persistence, DND, mark-read/clear
       (`Notifier` QObject + `NotificationPanel.qml`). 2026-XX-XX.

@@ -84,7 +84,7 @@ cmd_doctor() {
   [[ -x $SELENE_BIN ]] && printf "$format_line" "" "($SELENE_BIN)" || { ok=1; printf "$format_line" "" "MISSING - run: selene update"; }
   printf "$format_line" "share" "${SELENE_SHARE}$([[ -d $SELENE_SHARE ]] && echo " (ready)" || echo " (missing; will be created on first run)")"
 
-  local bins=("qmake6" "ffmpeg" "playerctl" "busctl" "hyprctl")
+  local bins=("qmake6" "ffmpeg" "playerctl" "busctl" "hyprctl" "cava" "nmcli" "bluetoothctl" "pactl")
   for b in "${bins[@]}"; do
     local found
     if found="$(command -v "$b" 2>/dev/null)"; then

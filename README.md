@@ -405,6 +405,62 @@ event-driven pipeline is live; the rest of the HUD is being ported.
 - [x] **Launcher ranking by usage** -- `Spawner.record_launch(label)` writes
       to `~/.local/share/selene/launcher-stats.json`; `apps_json` is sorted
       by frequency on every refresh; the `weight` field is exposed per entry.
+- [x] **Manual palette override** -- `Config.palette_follow_wallpaper`
+      (default true) gates the palette->Tokens wiring in Main.qml so a
+      user who picks custom `theme_*` values can stop the wallpaper from
+      overriding them. The Settings panel grows a Switch to flip it.
+- [x] **Cava visualizer** -- `Visualizer` QObject spawns `cava -p` with a
+      generated raw ASCII config, parses each `v;v;...;` frame on a
+      reader thread, and pushes `bars_json` + `peak` into the QML via
+      the cxx-qt queue at ~15fps. The IslandPill collapsed view shows
+      the bars while `media_playing == true`.
+- [x] **Launcher prefixes (Hax-style)** -- `=` calculator (sanitized JS
+      expression via `new Function`) and `?` web search (DuckDuckGo URL
+      via `Spawner.open_url`, dispatched to `xdg-open`).
+- [x] **D-Bus notification daemon** -- `Notifier.start_dbus()` spawns a
+      dedicated thread that runs a `zbus` blocking connection serving
+      `org.freedesktop.Notifications` on `/org/freedesktop/Notifications`
+      with the full `Notify` / `CloseNotification` / `GetCapabilities` /
+      `GetServerInformation` surface and emits `NotificationClosed` and
+      `ActionInvoked` signals. `set_value` and `save` qinvokables now
+      survive `init.lua` reloads and persist edits back to disk.
+- [x] **Inotify hot-reload of init.lua** via `notify` + cxx_qt queue.
+- [x] **`selene doctor`** -- prints per-binary / per-config diagnostics.
+- [x] **Wallpaper picker UI** -- `WallpaperPicker.qml` thumbnail grid,
+      prev/next/rescan, click-to-pick. `Ctrl+Alt+Left/Right` cycle through
+      the wallpapers from anywhere.
+- [x] **Settings panel UI** -- `SettingsPanel.qml` edits every scalar
+      Config property via `Config.set_value(key, val)` + `Config.save()`
+- [x] **Audio QObject** -- `Audio` exposes `volume_percent`, `muted`,
+      `default_sink_name`, `sinks_json` and `set_volume / bump / toggle_mute
+      / set_default_sink` qinvokables. `AudioPanel.qml` is the Quick Settings
+      surface with a slider, mute toggle, ± buttons, and a sink list.
+- [x] **Network QObject** -- `Network` exposes `wifi_enabled`, `connected`,
+      `active_name`, `active_ssid`, `active_signal`, `ipv4`, `wifi_json`,
+      `ifaces_json`, and `wifi_on / wifi_off / connect_ssid / disconnect`
+      qinvokables. `NetworkPanel.qml` is the Quick Settings surface with a
+      toggle, an active-connection card, IPv4, and a click-to-connect wifi
+      list (signal bars + 🔒 flags).
+- [x] **Bluetooth QObject** -- `Bluetooth` parses `bluetoothctl show / list
+      / devices -v`, exposes `powered / discoverable / adapter_name /
+      adapter_mac / devices_json`, and `power_on / power_off / toggle /
+      connect_device / disconnect_device / pair_device` qinvokables.
+      `BluetoothPanel.qml` is the Quick Settings surface with a switch
+      and a click-to-(pair|connect|disconnect) device list.
+- [x] **Theme runtime override (extended)** -- `font_family / theme_accent
+      / theme_background / theme_surface` from `Config` now flow into
+      `Tokens` live, so a Settings panel edit or a reloaded init.lua
+      immediately re-themes the whole shell.
+- [x] **Branded logo in the Bar** -- `assets/logo-{dark,white}.png` are
+      bundled into the binary via `qrc`; `Bar.qml` picks between them
+      based on the surface luminance (WCAG 2.x). The README `--switch`
+      picks the right one per `prefers-color-scheme`.
+- [x] **Headless screenshot capture** -- `selene-shell --screenshot <path>
+      --delay <ms>` grabs the `QQuickWindow` to a PNG and exits. Works
+      under `QT_QPA_PLATFORM=offscreen`, so docs / CI can regenerate
+      `assets/screenshot-shell.png` without a live Hyprland session.
+- [x] **`AGENTS.md`** -- project guide for AI agents covering the
+      post-reorganize layout, build flow, do/don't, where to look.
 - [x] **D-Bus notification daemon** -- `Notifier.start_dbus()` spawns a
       dedicated thread that runs a `zbus` blocking connection serving
       `org.freedesktop.Notifications` on `/org/freedesktop/Notifications`
