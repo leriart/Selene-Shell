@@ -19,6 +19,8 @@ pub mod qobject {
         #[qproperty(QString, status_json)]
         #[qproperty(bool, dnd_enabled)]
         #[qproperty(bool, dbus_connected)]
+        #[qproperty(bool, game_mode)]
+        #[qproperty(QString, power_profile)]
         #[qproperty(i32, unread_count)]
         #[qproperty(i32, history_max)]
         type Notifier = super::NotifierRust;
@@ -61,6 +63,12 @@ pub mod qobject {
         fn start_dbus(self: Pin<&mut Self>);
 
         #[qinvokable]
+        fn apply_game_mode(self: Pin<&mut Self>, enabled: bool);
+
+        #[qinvokable]
+        fn apply_power_profile(self: Pin<&mut Self>, profile: &QString);
+
+        #[qinvokable]
         fn storage_dir(&self) -> QString;
 
         #[qinvokable]
@@ -78,6 +86,8 @@ pub struct NotifierRust {
     status_json: QString,
     dnd_enabled: bool,
     dbus_connected: bool,
+    game_mode: bool,
+    power_profile: QString,
     unread_count: i32,
     history_max: i32,
 }
@@ -608,6 +618,44 @@ impl qobject::Notifier {
         }
         let mut this = self;
         this.as_mut().set_history_max(clamped);
+    }
+
+    pub fn apply_game_mode(self: Pin<&mut Self>, enabled: bool) {
+        // When game mode is on, also turn on DND and bump
+        // power-profile to performance so games get full CPU/GPU.
+        let mut this = self;
+        this.as_mut().set_game_mode(enabled);
+        // Force DND to the desired state.
+        if let Ok(mut store) = shared().lock() {
+            store.dnd = enabled;
+            let status = status_json(&store);
+            let dnd = store.dnd;
+            drop(store);
+            this.as_mut().set_dnd_enabled(dnd);
+            this.as_mut().set_status_json(status);
+        }
+        let profile = if enabled { "performance" } else { "balanced" };
+        let _ = std::process::Command::new("powerprofilesctl")
+            .arg("set")
+            .arg(profile)
+            .output();
+        this.as_mut()
+            .set_power_profile(QString::from(profile));
+    }
+
+    pub fn apply_power_profile(self: Pin<&mut Self>, profile: &QString) {
+        let p = profile.to_string();
+        let valid = matches!(p.as_str(), "power-saver" | "balanced" | "performance");
+        if !valid {
+            return;
+        }
+        let _ = std::process::Command::new("powerprofilesctl")
+            .arg("set")
+            .arg(&p)
+            .output();
+        let mut this = self;
+        this.as_mut()
+            .set_power_profile(QString::from(p.as_str()));
     }
 
     pub fn close_notification(self: Pin<&mut Self>, id: i32) {

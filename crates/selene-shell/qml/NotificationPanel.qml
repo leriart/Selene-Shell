@@ -116,6 +116,30 @@ Rectangle {
                 }
 
                 Button {
+                    text: notifier && notifier.game_mode ? "game on" : "game"
+                    enabled: notifier !== null
+                    onClicked: if (notifier) notifier.apply_game_mode(!notifier.game_mode)
+                }
+
+                ComboBox {
+                    model: ["power-saver", "balanced", "performance"]
+                    currentIndex: {
+                        if (!notifier) return 1;
+                        switch (notifier.power_profile) {
+                        case "power-saver": return 0;
+                        case "performance": return 2;
+                        default: return 1;
+                        }
+                    }
+                    enabled: notifier !== null
+                    onActivated: function(i) {
+                        if (notifier) notifier.apply_power_profile(
+                            i === 0 ? "power-saver" : i === 2 ? "performance" : "balanced")
+                    }
+                    Layout.maximumWidth: 120
+                }
+
+                Button {
                     text: "x"
                     onClicked: root.close()
                 }
