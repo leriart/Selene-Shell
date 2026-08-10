@@ -11,6 +11,7 @@ Item {
     property var visualizer: null
     property var network: null
     property var audio: null
+    property var state: null
 
     implicitWidth: cardExpanded ? 540 : 220
     implicitHeight: cardExpanded ? 340 : 36
@@ -451,6 +452,27 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 6
+                Button {
+                    text: "game"
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontXs
+                    enabled: root.islandSource !== null
+                    onClicked: if (root.state) root.state.game_mode()
+                }
+                Button {
+                    text: "focus"
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontXs
+                    enabled: root.islandSource !== null
+                    onClicked: if (root.state) root.state.focus_mode()
+                }
+                Button {
+                    text: "restore"
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontXs
+                    enabled: root.islandSource !== null
+                    onClicked: if (root.state) root.state.restore()
+                }
                 Button {
                     text: "lock"
                     font.family: Tokens.fontFamily

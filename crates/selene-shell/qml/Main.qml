@@ -131,6 +131,10 @@ ApplicationWindow {
         id: pickerBackend
     }
 
+    State {
+        id: stateBackend
+    }
+
     Visualizer {
         id: visualizerBackend
 
@@ -295,6 +299,7 @@ ApplicationWindow {
         visualizer: visualizerBackend
         network: networkBackend
         audio: audioBackend
+        state: stateBackend
         cardExpanded: typeof __seleneScreenshotPanel !== "undefined"
                       && __seleneScreenshotPanel === "dashboard"
     }

@@ -9,5 +9,6 @@ pub mod notifications;
 pub mod palette;
 pub mod picker;
 pub mod spawner;
+pub mod state;
 pub mod visualizer;
 pub mod wallpaper;
