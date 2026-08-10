@@ -193,6 +193,14 @@ ApplicationWindow {
         onTriggered: notifierBackend.expire_notifications()
     }
 
+    Timer {
+        // Poll the wallpaper directory for new files (every 30s).
+        interval: 30000
+        running: true
+        repeat: true
+        onTriggered: wallpaperBackend.refresh()
+    }
+
     Connections {
         target: paletteBackend
         // Disable the palette->Tokens wiring when the user has explicitly

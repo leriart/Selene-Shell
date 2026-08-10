@@ -151,17 +151,18 @@ Rectangle {
                         anchors.fill: parent
                         anchors.margins: 2
                         anchors.bottomMargin: 22
-                        source: modelData.kind === "image"
-                                ? "file://" + modelData.path : ""
+                        source: modelData.thumbnail && modelData.thumbnail.length > 0
+                                ? "file://" + modelData.thumbnail : ""
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
-                        visible: modelData.kind === "image"
+                        visible: true
                     }
 
                     Label {
                         anchors.centerIn: parent
                         anchors.verticalCenterOffset: -10
                         visible: modelData.kind !== "image"
+                                 && (!modelData.thumbnail || modelData.thumbnail.length === 0)
                         text: modelData.kind === "video" ? "video" : "gif"
                         color: Tokens.accent
                         font.family: Tokens.monoFamily

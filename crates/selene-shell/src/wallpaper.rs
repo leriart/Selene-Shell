@@ -7,10 +7,14 @@
 /// via Image / AnimatedImage / MediaPlayer + VideoOutput.
 
 use core::pin::Pin;
+use cxx_qt::Threading;
 use cxx_qt_lib::QString;
+use image::imageops::FilterType;
+use image::ImageReader;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -28,6 +32,7 @@ pub mod qobject {
         #[qproperty(QString, current_kind)]
         #[qproperty(i32, current_index)]
         #[qproperty(bool, available)]
+        #[qproperty(bool, thumbnails_ready)]
         type Wallpaper = super::WallpaperRust;
 
         #[qinvokable]
@@ -60,6 +65,7 @@ pub struct WallpaperRust {
     current_kind: QString,
     current_index: i32,
     available: bool,
+    thumbnails_ready: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -67,6 +73,54 @@ struct Entry {
     path: String,
     name: String,
     kind: String,
+    #[serde(default)]
+    thumbnail: String,
+}
+
+fn thumb_dir() -> PathBuf {
+    let home = std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h))
+        .unwrap_or_else(|| PathBuf::from("/tmp"));
+    home.join(".cache/selene/wallpaper-thumbs")
+}
+
+fn generate_thumb(source: &Path, kind: &str) -> String {
+    let dir = thumb_dir();
+    let _ = fs::create_dir_all(&dir);
+    let hash = source.to_string_lossy()
+        .replace(['/', '\\', ':', '.', ' '], "_");
+    let thumb_path = dir.join(format!("{hash}.jpg"));
+    let thumb_str = thumb_path.to_string_lossy().to_string();
+
+    if thumb_path.exists() {
+        return thumb_str;
+    }
+
+    match kind {
+        "video" => {
+            // Extract a frame via ffmpeg
+            let _ = Command::new("ffmpeg")
+                .args([
+                    "-y", "-ss", "1", "-i",
+                    source.to_string_lossy().as_ref(),
+                    "-frames:v", "1",
+                    "-vf", "scale=280:158",
+                    thumb_path.to_string_lossy().as_ref(),
+                ])
+                .output();
+        }
+        _ => {
+            // Resize with image crate
+            if let Some(img) = image::ImageReader::open(source)
+                .ok()
+                .and_then(|r| r.decode().ok())
+            {
+                let thumb = img.resize_exact(280, 158, FilterType::Lanczos3);
+                let _ = thumb.save(&thumb_path);
+            }
+        }
+    }
+    thumb_str
 }
 
 fn classify(p: &Path) -> Option<String> {
@@ -97,6 +151,7 @@ fn walk(dir: &Path, out: &mut Vec<Entry>) {
                     path: path.to_string_lossy().to_string(),
                     name: name.to_string(),
                     kind,
+                    thumbnail: String::new(),
                 });
             }
         }
@@ -122,7 +177,9 @@ fn default_dir() -> PathBuf {
 }
 
 fn paths_json_for(entries: &[Entry]) -> QString {
-    QString::from(serde_json::to_string(entries).unwrap_or_else(|_| "[]".to_string()).as_str())
+    // Filter to entries that actually exist and have a valid kind
+    let filtered: Vec<&Entry> = entries.iter().filter(|e| !e.kind.is_empty()).collect();
+    QString::from(serde_json::to_string(&filtered).unwrap_or_else(|_| "[]".to_string()).as_str())
 }
 
 impl qobject::Wallpaper {
@@ -150,6 +207,27 @@ impl qobject::Wallpaper {
         this.as_mut().set_current_kind(QString::from(first_kind.as_str()));
         this.as_mut().set_current_index(if is_empty { -1 } else { 0 });
         this.as_mut().set_available(!is_empty);
+        this.as_mut().set_thumbnails_ready(false);
+
+        // Generate thumbnails in a background thread so the UI stays
+        // responsive. When done, the thread queues the updated paths_json
+        // back to the Qt main thread.
+        let qt: cxx_qt::CxxQtThread<qobject::Wallpaper> = this.as_ref().qt_thread();
+        std::thread::Builder::new()
+            .name("selene-thumbnails".into())
+            .spawn(move || {
+                for entry in entries.iter_mut() {
+                    entry.thumbnail = generate_thumb(
+                        Path::new(&entry.path), &entry.kind);
+                }
+                let json = paths_json_for(&entries);
+                let _ = qt.queue(move |mut w| {
+                    w.as_mut()
+                        .set_paths_json(QString::from(json.to_string().as_str()));
+                    w.as_mut().set_thumbnails_ready(true);
+                });
+            })
+            .expect("selene: failed to spawn thumbnail thread");
     }
 
     pub fn use_directory(self: Pin<&mut Self>, path: &QString) {
@@ -235,6 +313,7 @@ impl qobject::Wallpaper {
                 path: raw.clone(),
                 name,
                 kind: kind_str.clone(),
+                thumbnail: String::new(),
             });
         }
         let new_json = paths_json_for(&entries);
