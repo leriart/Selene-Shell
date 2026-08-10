@@ -389,6 +389,14 @@ ApplicationWindow {
                       && __seleneScreenshotPanel === "dashboard"
     }
 
+    Dock {
+        id: dock
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 80
+        spawner: spawner
+    }
+
     Sidebar {
         id: sidebar
         anchors.left: parent.left
@@ -500,5 +508,13 @@ ApplicationWindow {
         anchors.fill: parent
         z: 2000
         lock: lockBackend
+    }
+
+    ScreenCorners {
+        id: screenCorners
+        anchors.fill: parent
+        z: 9999
+        cornerSize: Tokens.radiusXl + 8
+        cornerColor: Tokens.bg
     }
 }
