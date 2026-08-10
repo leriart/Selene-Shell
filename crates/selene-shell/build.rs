@@ -17,6 +17,10 @@ fn main() {
         "qml/AudioPanel.qml".into(),
         "qml/NetworkPanel.qml".into(),
         "qml/BluetoothPanel.qml".into(),
+        "qml/ClipboardPanel.qml".into(),
+        "qml/Sidebar.qml".into(),
+        "qml/SidebarButton.qml".into(),
+        "qml/SidebarBadge.qml".into(),
     ];
 
     // QML files are listed here so they get compiled into the binary's
@@ -80,6 +84,7 @@ fn main() {
         "src/audio.rs",
         "src/bluetooth.rs",
         "src/bridge.rs",
+        "src/clipboard.rs",
         "src/config.rs",
         "src/island.rs",
         "src/network.rs",

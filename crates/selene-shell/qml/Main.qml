@@ -36,6 +36,7 @@ ApplicationWindow {
         case "net":       networkPanel.open(); break;
         case "bt":        bluetoothPanel.open(); break;
         case "sidebar":   sidebar.open = true; break;
+        case "clipboard": clipboardPanel.open(); break;
         }
     }
 
@@ -117,6 +118,11 @@ ApplicationWindow {
         id: audioBackend
 
         Component.onCompleted: audioBackend.refresh()
+    }
+
+    Clipboard {
+        id: clipboardBackend
+        Component.onCompleted: clipboardBackend.refresh()
     }
 
     Visualizer {
@@ -292,6 +298,8 @@ ApplicationWindow {
         bluetooth: bluetoothBackend
         launcher: launcher
         wallpaperPicker: wallpaperPicker
+        clipboard: clipboardPanel
+        // picker panel added below
         open: typeof __seleneScreenshotPanel !== "undefined"
               && __seleneScreenshotPanel === "sidebar"
     }
@@ -369,5 +377,13 @@ ApplicationWindow {
         z: 1600
         bluetooth: bluetoothBackend
         Keys.onEscapePressed: bluetoothPanel.close()
+    }
+
+    ClipboardPanel {
+        id: clipboardPanel
+        anchors.fill: parent
+        z: 1700
+        clipboard: clipboardBackend
+        Keys.onEscapePressed: clipboardPanel.close()
     }
 }
