@@ -1,3 +1,13 @@
+/// App launcher -- .desktop enumeration and process spawning.
+//
+/// The `Spawner` QObject walks /usr/share/applications and
+/// ~/.local/share/applications, parses .desktop files, expands field
+/// codes, applies TryExec preflights, and spawns via setsid --fork.
+/// Launcher ranking by usage frequency is persisted to
+/// launcher-stats.json. The QML side (`Launcher.qml`) provides a
+/// Hax-style fuzzy search with \@/>/=/?/: prefixes and calls
+/// copy_to_clipboard / open_url for the non-app actions.
+
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::collections::HashMap;

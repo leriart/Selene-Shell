@@ -1,3 +1,10 @@
+/// Lock screen -- PAM-backed password unlock.
+//
+/// The `Lock` QObject validates the user password against the local
+/// PAM stack via su -c true and unlocks on success. The QML side
+/// (`LockScreen.qml`) renders a full-screen overlay with a password
+/// field and a shake animation on failure.
+
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::process::{Command, Stdio};

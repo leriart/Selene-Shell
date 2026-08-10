@@ -1,10 +1,16 @@
-//! cava-bg IPC -- UNIX socket listener that accepts JSON palette
-//! updates from `cava-bg` (or any external source) and pushes them
-//! into the QML `Tokens` singleton through the cxx-qt queue.
-//!
-//! The socket lives at `~/.local/share/selene/ipc.sock` and expects
-//! one JSON line per update in the same shape the Palette engine uses:
-//! `{"accent":"#...","surface":"#...","background":"#...","text_color":"#..."}`.
+/// cava-bg IPC -- UNIX socket listener for external palette push.
+//
+/// The `IpcPalette` QObject binds a UnixListener and accepts JSON
+/// lines with accent / surface / background / text_color keys,
+/// pushing them into QML Tokens through the cxx-qt queue.
+
+/// cava-bg IPC -- UNIX socket listener that accepts JSON palette
+/// updates from `cava-bg` (or any external source) and pushes them
+/// into the QML `Tokens` singleton through the cxx-qt queue.
+//
+/// The socket lives at `~/.local/share/selene/ipc.sock` and expects
+/// one JSON line per update in the same shape the Palette engine uses:
+/// `{"accent":"#...","surface":"#...","background":"#...","text_color":"#..."}`.
 
 use core::pin::Pin;
 use cxx_qt::Threading;

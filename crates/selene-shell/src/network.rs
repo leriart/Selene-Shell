@@ -1,3 +1,11 @@
+/// Network quick-settings -- Wi-Fi scan, connect, and status via nmcli.
+//
+/// The `Network` QObject parses `nmcli -t` output for active
+/// connections, Wi-Fi list (SSID / signal / security), and writes
+/// back through `nmcli radio wifi on/off` and `connect_ssid`.
+/// The QML side (`NetworkPanel.qml`) renders a toggle, an active-
+/// connection card, and a click-to-connect Wi-Fi list.
+
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::process::Command;

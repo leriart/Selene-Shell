@@ -1,3 +1,10 @@
+/// User configuration -- Lua-driven settings loaded from ~/.config/selene/init.lua.
+//
+/// The `Config` QObject embeds Lua 5.4 via mlua, exposes every
+/// field as a \#[qproperty], and watches the file for changes via
+/// inotify. The QML side (`SettingsPanel.qml`) allows live editing
+/// and round-trips through `set_value` / `save`.
+
 use core::pin::Pin;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;

@@ -2,6 +2,13 @@ use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::process::Command;
 
+/// Audio quick-settings -- volume, mute, and sink management via `pactl`.
+//
+/// The `Audio` QObject lists sinks, reads the default volume and mute
+/// state, and writes back through `pactl set-sink-volume` /
+/// `set-sink-mute` / `set-default-sink`. The QML side (`AudioPanel.qml`)
+/// renders a slider, mute toggle, and a click-to-select sink list.
+
 /// Audio control via pactl. Mirrors the small surface typically exposed by
 /// a status bar / quick-settings panel: a single sink's volume + mute, plus
 /// the list of available sinks for the user to choose from.

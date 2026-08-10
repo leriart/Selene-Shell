@@ -1,3 +1,11 @@
+/// Wallpaper surface -- directory enumeration and rendering.
+//
+/// The `Wallpaper` QObject walks a directory recursively,
+/// classifies files (image / animated / video) by extension, and
+/// exposes the current path, kind, and the full list as JSON.
+/// The QML side (`WallpaperSurface.qml`) renders the correct type
+/// via Image / AnimatedImage / MediaPlayer + VideoOutput.
+
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use serde::{Deserialize, Serialize};

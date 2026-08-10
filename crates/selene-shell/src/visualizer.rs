@@ -1,3 +1,11 @@
+/// Audio visualizer -- live bar graph via cava subprocess.
+//
+/// The `Visualizer` QObject spawns `cava -p` with a generated
+/// raw ASCII config, parses each v;v;...; frame on a reader thread,
+/// and pushes bars_json + peak to QML through the cxx-qt queue at
+/// ~15fps. The QML side (`IslandPill.qml`) renders the bars while
+/// media_playing is true.
+
 use core::pin::Pin;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;

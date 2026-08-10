@@ -1,3 +1,10 @@
+/// Clipboard history -- persistent clipboard manager via cliphist.
+//
+/// The `Clipboard` QObject parses `cliphist list` into a JSON array of
+/// entries (id / preview / full) and writes back through `wl-copy /
+/// xclip / xsel`. The QML side (`ClipboardPanel.qml`) renders a
+/// searchable list with click-to-copy and right-click-to-delete.
+
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::process::Command;

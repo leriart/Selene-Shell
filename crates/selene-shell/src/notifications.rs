@@ -1,3 +1,13 @@
+/// Notification daemon -- org.freedesktop.Notifications over D-Bus.
+//
+/// The `Notifier` QObject runs a zbus blocking connection serving
+/// the full Notify / CloseNotification / GetCapabilities /
+/// GetServerInformation surface plus NotificationClosed and
+/// ActionInvoked signals. Entries persist to JSON;//! history_max caps the FIFO; expire_notifications() drops timed-out
+/// entries. The QML side (`NotificationPanel.qml`) renders a DND
+/// toggle, a game-mode switch, a power-profile combo, and action-button
+/// delegates.
+
 use core::pin::Pin;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;

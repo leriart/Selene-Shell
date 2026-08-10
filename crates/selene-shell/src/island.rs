@@ -1,3 +1,10 @@
+/// System metrics and media -- CPU, RAM, battery, clock, MPRIS.
+//
+/// The `Island` QObject reads /proc/stat, /proc/meminfo,
+/// /sys/class/power_supply, calls `date` for the clock, and
+/// `playerctl` for MPRIS media. The QML side (`IslandPill.qml`)
+/// morphs between a collapsed pill and an expanded dashboard card.
+
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::fs;

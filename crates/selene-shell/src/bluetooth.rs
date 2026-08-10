@@ -1,3 +1,10 @@
+/// Bluetooth quick-settings -- device discovery, pairing, and power via bluetoothctl.
+//
+/// The `Bluetooth` QObject lists devices (paired / connected / trusted)
+/// and writes back through `bluetoothctl power on/off`,
+/// `pair/connect/disconnect`. The QML side (`BluetoothPanel.qml`)
+/// renders a power toggle and a device list with click-to-pair.
+
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::process::Command;

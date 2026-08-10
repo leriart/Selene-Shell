@@ -1,3 +1,10 @@
+/// Color picker -- pixel grabber via hyprpicker.
+//
+/// The `Picker` QObject spawns `hyprpicker -f hex` to freeze the
+/// screen and return the picked pixel. The QML side
+/// (`ColorPickerPanel.qml`) shows a large swatch, hex readout, and
+/// RGB channel tiles.
+
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::process::Command;

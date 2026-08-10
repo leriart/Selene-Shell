@@ -1,3 +1,10 @@
+/// Hyprland state snapshot/restore -- save and reload compositor options.
+//
+/// The `State` QObject reads Hyprland options (animations, gaps,
+/// border, rounding, VRR) via `hyprctl getoption`, saves them to
+/// state.json, and restores via `hyprctl keyword`. game_mode() and
+/// focus_mode() presets are one-click toggles.
+
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::process::Command;
