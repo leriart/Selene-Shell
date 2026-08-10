@@ -15,11 +15,12 @@ ApplicationWindow {
     color: typeof __seleneRenderSize !== "undefined" ? Tokens.bg : "transparent"
 
     // In a real Hyprland session the user is expected to add:
-    //   windowrulev2 = layershell, background, title:^Selene.*$
-    // in their hyprland.conf to make the shell a true background
-    // layer. Until then, we use a transparent frameless window so the
-    // wallpaper still shows through and none of our pixels compete
-    // with the compositor's output.
+    //   layerrule = blur, namespace:selene-shell
+    //   layerrule = ignorealpha 0.4, namespace:selene-shell
+    // in their hyprland.lua to make the shell windows render with
+    // backdrop blur at the compositor level. Until then, we use a
+    // transparent frameless window so the wallpaper still shows
+    // through and none of our pixels compete with the compositor.
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnBottomHint
 
     // When running in a live Hyprland session, make the window
