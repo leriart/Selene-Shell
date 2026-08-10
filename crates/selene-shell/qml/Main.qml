@@ -37,6 +37,7 @@ ApplicationWindow {
         case "bt":        bluetoothPanel.open(); break;
         case "sidebar":   sidebar.open = true; break;
         case "clipboard": clipboardPanel.open(); break;
+        case "picker":   colorPickerPanel.open(); break;
         }
     }
 
@@ -123,6 +124,10 @@ ApplicationWindow {
     Clipboard {
         id: clipboardBackend
         Component.onCompleted: clipboardBackend.refresh()
+    }
+
+    Picker {
+        id: pickerBackend
     }
 
     Visualizer {
@@ -299,7 +304,7 @@ ApplicationWindow {
         launcher: launcher
         wallpaperPicker: wallpaperPicker
         clipboard: clipboardPanel
-        // picker panel added below
+        picker: colorPickerPanel
         open: typeof __seleneScreenshotPanel !== "undefined"
               && __seleneScreenshotPanel === "sidebar"
     }
@@ -385,5 +390,13 @@ ApplicationWindow {
         z: 1700
         clipboard: clipboardBackend
         Keys.onEscapePressed: clipboardPanel.close()
+    }
+
+    ColorPickerPanel {
+        id: colorPickerPanel
+        anchors.fill: parent
+        z: 1800
+        picker: pickerBackend
+        Keys.onEscapePressed: colorPickerPanel.close()
     }
 }

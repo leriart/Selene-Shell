@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
         QStringLiteral("3000"));
     const QCommandLineOption showOpt(
         QStringLiteral("show"),
-        QStringLiteral("Open a panel before exiting: launcher, notif, walls, settings, audio, net, bt, sidebar, clipboard (only meaningful with --screenshot)."),
+        QStringLiteral("Open a panel before exiting: launcher, notif, walls, settings, audio, net, bt, sidebar, clipboard, picker (only meaningful with --screenshot)."),
         QStringLiteral("name"));
     const QCommandLineOption launcherQueryOpt(
         QStringLiteral("launcher-query"),
