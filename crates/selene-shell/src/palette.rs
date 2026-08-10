@@ -1,3 +1,12 @@
+//! Live palette engine -- extracts dominant colours from a static
+//! image or video wallpaper and pushes the derived accent / surface /
+//! background / text_colour into the QML `Tokens` singleton.
+//!
+//! For static images the `image` crate reads and resizes to 64px;
+//! for video wallpapers `ffmpeg` is piped into a 5fps raw-RGB24
+//! stream (when `start_streaming` is active) and each 12288-byte
+//! frame is quantised with the same 5-bit bucketing algorithm.
+
 use core::pin::Pin;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;

@@ -1,3 +1,13 @@
+//! Hyprland IPC bridge -- push-based event listener + sync query.
+//!
+//! The `Bridge` QObject owns a dedicated `std::thread` that runs a
+//! `hyprland-rs::EventListener`. On every workspace, monitor, window,
+//! fullscreen or focus event, the listener queues a `refresh()` call
+//! back onto the Qt main thread through `cxx_qt::CxxQtThread`, which
+//! re-reads the relevant state from the Hyprland socket and updates
+//! all `#[qproperty]` fields in one pass. QML bindings then propagate
+//! to every visible surface without polling.
+
 use core::pin::Pin;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;
