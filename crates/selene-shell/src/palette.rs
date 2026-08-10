@@ -1,4 +1,5 @@
 use core::pin::Pin;
+use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use image::{ImageReader, imageops::FilterType};
 use serde::Serialize;
@@ -7,6 +8,7 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -26,6 +28,7 @@ pub mod qobject {
         #[qproperty(QString, text_color)]
         #[qproperty(QString, last_error)]
         #[qproperty(bool, available)]
+        #[qproperty(bool, streaming)]
         type Palette = super::PaletteRust;
 
         #[qinvokable]
@@ -33,6 +36,12 @@ pub mod qobject {
 
         #[qinvokable]
         fn refresh(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn start_streaming(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn stop_streaming(self: Pin<&mut Self>);
 
         #[qinvokable]
         fn default_source(&self) -> QString;
@@ -51,6 +60,7 @@ pub struct PaletteRust {
     text_color: QString,
     last_error: QString,
     available: bool,
+    streaming: bool,
 }
 
 #[derive(Serialize)]
@@ -386,4 +396,102 @@ impl qobject::Palette {
     pub fn default_source(&self) -> QString {
         QString::from(default_source_path().to_string_lossy().as_ref())
     }
+
+    pub fn start_streaming(self: Pin<&mut Self>) {
+        if *self.streaming() {
+            return;
+        }
+        let path = self.source_path().to_string();
+        if path.is_empty() || !classify_is_video(Path::new(&path)) {
+            let mut this = self;
+            this.as_mut()
+                .set_last_error(QString::from("not a video source"));
+            return;
+        }
+        let qt: cxx_qt::CxxQtThread<qobject::Palette> = self.as_ref().qt_thread();
+        let mut this = self;
+        this.as_mut().set_streaming(true);
+        this.as_mut()
+            .set_last_error(QString::from("streaming"));
+        std::thread::Builder::new()
+            .name("selene-palette-stream".into())
+            .spawn(move || stream_main(path, qt))
+            .expect("selene: failed to spawn palette stream thread");
+    }
+
+    pub fn stop_streaming(self: Pin<&mut Self>) {
+        if let Ok(mut guard) = STREAMING_CHILD.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+        let mut this = self;
+        this.as_mut().set_streaming(false);
+        this.as_mut().set_last_error(QString::from("stopped"));
+    }
+}
+
+static STREAMING_CHILD: Mutex<Option<std::process::Child>> = Mutex::new(None);
+
+fn stream_main(path: String, qt: cxx_qt::CxxQtThread<qobject::Palette>) {
+    let Ok(mut child) = std::process::Command::new("ffmpeg")
+        .args([
+            "-re", "-ss", "0",
+            "-i", &path,
+            "-vf", "scale=64:64",
+            "-pix_fmt", "rgb24",
+            "-f", "rawvideo",
+            "-r", "5",
+            "pipe:1",
+        ])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    else {
+        let _ = qt.queue(|mut p| p.as_mut().set_streaming(false));
+        return;
+    };
+
+    let Some(stdout) = child.stdout.take() else {
+        let _ = qt.queue(|mut p| p.as_mut().set_streaming(false));
+        return;
+    };
+
+    // Store child so stop_streaming can kill it.
+    if let Ok(mut guard) = STREAMING_CHILD.lock() {
+        *guard = Some(child);
+    }
+
+    let mut stdout = std::io::BufReader::new(stdout);
+    let mut buf = [0u8; 64 * 64 * 3];
+    loop {
+        match stdout.read_exact(&mut buf) {
+            Ok(()) => {
+                if let Some(dominant) = bucket_pixels_from_rgb24(&buf, 6) {
+                    let (accent, surface, background, text_color) = derive_roles(&dominant);
+                    let json = serde_json::to_string(&dominant)
+                        .unwrap_or_else(|_| "[]".to_string());
+                    let _ = qt.queue(move |mut p| {
+                        p.as_mut()
+                            .set_dominant_json(QString::from(json.as_str()));
+                        p.as_mut()
+                            .set_accent(QString::from(accent.as_str()));
+                        p.as_mut()
+                            .set_surface(QString::from(surface.as_str()));
+                        p.as_mut()
+                            .set_background(QString::from(background.as_str()));
+                        p.as_mut()
+                            .set_text_color(QString::from(text_color.as_str()));
+                    });
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(_) => break,
+        }
+    }
+
+    // Child exited: reflect it.
+    let _ = qt.queue(|mut p| p.as_mut().set_streaming(false));
 }
