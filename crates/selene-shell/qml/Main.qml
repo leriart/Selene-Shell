@@ -237,6 +237,30 @@ ApplicationWindow {
     }
 
     Connections {
+        // Audio-reactive palette: when the visualizer is running and
+        // something is playing, modulate the accent saturation based on
+        // the peak energy. This creates a subtle "breathing" effect
+        // that tracks the music without needing a separate cava-bg
+        // process.
+        target: visualizerBackend
+        enabled: islandBackend && islandBackend.media_playing
+                 && visualizerBackend && visualizerBackend.running
+        function onPeakChanged() {
+            if (!islandBackend || !islandBackend.media_playing) return;
+            const peak = visualizerBackend.peak / 100.0;
+            // Lerp the accent towards a slightly more saturated version
+            // when the music is loud.
+            const base = Qt.darker(Tokens.accent, 1.0 + peak * 0.4);
+            // Blend 30% toward the energy accent so the wallpaper
+            // accent still dominates.
+            const blended = Qt.tint(Tokens.accent, base, peak * 0.3);
+            // Cap the write rate: only push if this is not already in the
+            // 600ms animation window.
+            Tokens.accentMuted = blended;
+        }
+    }
+
+    Connections {
         // Config-driven tokens: react to live changes from settings /
         // hot-reloaded init.lua so the whole shell re-themes immediately.
         target: configBackend

@@ -1,0 +1,48 @@
+# Maintainer: leriart <github.com/leriart>
+pkgname=selene-shell
+pkgver=0.2.0
+pkgrel=1
+pkgdesc="A QML shell for Hyprland -- translucent overlays, live theming, no config edits."
+arch=('x86_64')
+url="https://github.com/leriart/selene-shell"
+license=('Apache-2.0')
+depends=(
+    'qt6-base' 'qt6-declarative' 'qt6-quickcontrols2' 'qt6-multimedia'
+    'lua54' 'ffmpeg' 'playerctl' 'cava' 'networkmanager'
+    'bluez-utils' 'pipewire-pulse' 'cliphist' 'hyprpicker'
+    'gcc-libs'
+)
+makedepends=(
+    'cmake' 'ninja' 'git' 'rust' 'gcc'
+)
+source=("git+${url}.git#tag=v${pkgver}")
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname"
+    cargo generate-lockfile \
+        --manifest-path crates/selene-shell/Cargo.toml
+    cmake -S . -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build
+}
+
+package() {
+    cd "$pkgname"
+    install -Dm755 build/selene-shell \
+        "$pkgdir/usr/bin/selene-shell"
+    install -Dm755 scripts/cli.sh \
+        "$pkgdir/usr/bin/selene"
+    install -Dm755 scripts/install.sh \
+        "$pkgdir/usr/share/selene-shell/install.sh"
+    install -Dm644 README.md \
+        "$pkgdir/usr/share/doc/selene-shell/README.md"
+    install -Dm644 LICENSE \
+        "$pkgdir/usr/share/licenses/selene-shell/LICENSE"
+    # logo assets for reference; the binary embeds them via qrc
+    install -Dm644 assets/logo-dark.png \
+        "$pkgdir/usr/share/selene-shell/assets/logo-dark.png"
+    install -Dm644 assets/logo-white.png \
+        "$pkgdir/usr/share/selene-shell/assets/logo-white.png"
+}

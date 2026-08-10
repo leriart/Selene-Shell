@@ -205,9 +205,15 @@ gate; `cargo clippy` is not run in CI yet.
 | Notifications | `crates/selene-shell/src/notifications.rs` + `qml/NotificationPanel.qml` |
 | Launcher | `crates/selene-shell/src/spawner.rs` + `qml/Launcher.qml` |
 | Config | `crates/selene-shell/src/config.rs` + `qml/SettingsPanel.qml` |
-| Island overlay | `crates/selene-shell/src/island.rs` + `qml/IslandPill.qml` |
+| Island overlay / Dashboard | `crates/selene-shell/src/island.rs` + `qml/IslandPill.qml` |
 | Audio | `crates/selene-shell/src/audio.rs` + `qml/AudioPanel.qml` |
 | Network | `crates/selene-shell/src/network.rs` + `qml/NetworkPanel.qml` |
 | Bluetooth | `crates/selene-shell/src/bluetooth.rs` + `qml/BluetoothPanel.qml` |
 | Cava visualizer | `crates/selene-shell/src/visualizer.rs` |
+| Clipboard | `crates/selene-shell/src/clipboard.rs` + `qml/ClipboardPanel.qml` |
+| Color picker | `crates/selene-shell/src/picker.rs` + `qml/ColorPickerPanel.qml` |
+| Sidebar | `crates/selene-shell/qml/Sidebar.qml` + `SidebarButton.qml` + `SidebarBadge.qml` |
+| State (snapshot/restore) | `crates/selene-shell/src/state.rs` |
+| Lock screen | `crates/selene-shell/src/lock.rs` + `qml/LockScreen.qml` |
+| cava-bg IPC | `crates/selene-shell/src/ipc.rs` |
 | Tokens (shared design system) | `crates/selene-shell/qml/Tokens.qml` |
