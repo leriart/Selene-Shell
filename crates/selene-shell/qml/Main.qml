@@ -35,6 +35,7 @@ ApplicationWindow {
         case "audio":     audioPanel.open(); break;
         case "net":       networkPanel.open(); break;
         case "bt":        bluetoothPanel.open(); break;
+        case "sidebar":   sidebar.open = true; break;
         }
     }
 
@@ -280,6 +281,19 @@ ApplicationWindow {
         anchors.bottomMargin: Tokens.barMargin
         islandSource: islandBackend
         visualizer: visualizerBackend
+    }
+
+    Sidebar {
+        id: sidebar
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        audio: audioBackend
+        network: networkBackend
+        bluetooth: bluetoothBackend
+        launcher: launcher
+        wallpaperPicker: wallpaperPicker
+        open: typeof __seleneScreenshotPanel !== "undefined"
+              && __seleneScreenshotPanel === "sidebar"
     }
 
     Launcher {
