@@ -135,6 +135,11 @@ ApplicationWindow {
         id: stateBackend
     }
 
+    Lock {
+        id: lockBackend
+        Component.onCompleted: lockBackend.resolve_username()
+    }
+
     Visualizer {
         id: visualizerBackend
 
@@ -408,5 +413,12 @@ ApplicationWindow {
         z: 1800
         picker: pickerBackend
         Keys.onEscapePressed: colorPickerPanel.close()
+    }
+
+    LockScreen {
+        id: lockScreen
+        anchors.fill: parent
+        z: 2000
+        lock: lockBackend
     }
 }

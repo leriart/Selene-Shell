@@ -4,6 +4,7 @@ pub mod bridge;
 pub mod clipboard;
 pub mod config;
 pub mod island;
+pub mod lock;
 pub mod network;
 pub mod notifications;
 pub mod palette;
