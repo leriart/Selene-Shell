@@ -38,6 +38,7 @@ ApplicationWindow {
         case "sidebar":   sidebar.open = true; break;
         case "clipboard": clipboardPanel.open(); break;
         case "picker":   colorPickerPanel.open(); break;
+        case "dashboard": islandWidget.cardExpanded = true; break;
         }
     }
 
@@ -292,6 +293,10 @@ ApplicationWindow {
         anchors.bottomMargin: Tokens.barMargin
         islandSource: islandBackend
         visualizer: visualizerBackend
+        network: networkBackend
+        audio: audioBackend
+        cardExpanded: typeof __seleneScreenshotPanel !== "undefined"
+                      && __seleneScreenshotPanel === "dashboard"
     }
 
     Sidebar {

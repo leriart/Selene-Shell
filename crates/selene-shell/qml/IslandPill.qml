@@ -1,16 +1,19 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
+import QtQuick.Effects
 
 Item {
     id: root
 
-    // Source of metrics/media data (a Rust Island QObject).
     property var islandSource: null
     property var visualizer: null
+    property var network: null
+    property var audio: null
 
-    implicitWidth: cardExpanded ? 480 : 220
-    implicitHeight: cardExpanded ? 160 : 36
+    implicitWidth: cardExpanded ? 540 : 220
+    implicitHeight: cardExpanded ? 340 : 36
 
     width: implicitWidth
     height: implicitHeight
@@ -27,8 +30,10 @@ Item {
     Rectangle {
         id: card
         anchors.fill: parent
-        radius: 18
-        color: cardExpanded ? Tokens.surface : Tokens.surfaceAlt
+        radius: cardExpanded ? Tokens.radiusLg : Tokens.radiusLg
+        color: cardExpanded
+               ? Qt.rgba(Tokens.surface.r, Tokens.surface.g, Tokens.surface.b, 0.92)
+               : Tokens.surfaceAlt
         border.color: Tokens.border
         border.width: 1
 
@@ -36,7 +41,17 @@ Item {
             ColorAnimation { duration: Tokens.duration }
         }
 
-        // Collapsed pill: media + load average
+        // Backdrop blur when expanded
+        MultiEffect {
+            anchors.fill: parent
+            source: wallpaper
+            blurEnabled: root.cardExpanded
+            blur: 0.6
+            saturation: 1.15
+            opacity: 0.88
+        }
+
+        // -- COLLAPSED pill: media dot + title + load avg ---------
         Item {
             anchors.fill: parent
             visible: !root.cardExpanded
@@ -56,7 +71,6 @@ Item {
                     Layout.alignment: Qt.AlignVCenter
                 }
 
-                // Live audio bars from cava, only while something plays.
                 Item {
                     id: vizBox
                     Layout.preferredWidth: 56
@@ -82,10 +96,8 @@ Item {
                     RowLayout {
                         anchors.fill: parent
                         spacing: 1
-
                         Repeater {
                             model: vizBox.bars
-
                             delegate: Rectangle {
                                 required property var modelData
                                 Layout.fillWidth: true
@@ -96,7 +108,6 @@ Item {
                                 Layout.alignment: Qt.AlignBottom
                                 color: Tokens.accent
                                 radius: 1
-
                                 Behavior on Layout.preferredHeight {
                                     NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
                                 }
@@ -133,32 +144,33 @@ Item {
             }
         }
 
-        // Expanded card
+        // -- EXPANDED Dashboard ---------------------------------------
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 16
-            spacing: 10
+            anchors.margins: 18
+            spacing: 12
             visible: root.cardExpanded
 
+            // Header row
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 12
-
                 Label {
-                    text: "island"
+                    text: "dashboard"
                     color: Tokens.accent
                     font.family: Tokens.fontFamily
                     font.pixelSize: Tokens.fontSm
                     font.bold: true
                 }
-
                 Item { Layout.fillWidth: true }
-
                 Label {
-                    text: root.islandSource
-                          ? ("load " + root.islandSource.load_avg_1.toFixed(2))
-                          : "--"
+                    text: root.islandSource ? root.islandSource.time_hhmm : ""
                     color: Tokens.textMuted
+                    font.family: Tokens.monoFamily
+                    font.pixelSize: Tokens.fontXs
+                }
+                Label {
+                    text: root.islandSource ? root.islandSource.date_ymd : ""
+                    color: Tokens.textDim
                     font.family: Tokens.monoFamily
                     font.pixelSize: Tokens.fontXs
                 }
@@ -166,47 +178,199 @@ Item {
 
             Rectangle { Layout.fillWidth: true; height: 1; color: Tokens.border }
 
+            // Media section
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 12
+                spacing: 14
 
+                // Album art placeholder (accent-tinted block)
                 Rectangle {
-                    Layout.preferredWidth: 12
-                    Layout.preferredHeight: 12
-                    radius: 6
-                    color: root.islandSource && root.islandSource.media_playing
-                           ? Tokens.success : Tokens.textDim
-                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredWidth: 80
+                    Layout.preferredHeight: 80
+                    radius: Tokens.radiusMd
+                    color: {
+                        if (!root.islandSource) return Tokens.surfaceAlt;
+                        return root.islandSource.media_playing
+                               ? Qt.darker(Tokens.accent, 3.5)
+                               : Tokens.surfaceAlt;
+                    }
+                    border.color: Tokens.border
+                    border.width: 1
+
+                    Label {
+                        anchors.centerIn: parent
+                        text: root.islandSource && root.islandSource.media_playing
+                              ? "\u266B"
+                              : "\u25A0"
+                        color: root.islandSource && root.islandSource.media_playing
+                               ? Tokens.accent : Tokens.textDim
+                        font.family: Tokens.fontFamily
+                        font.pixelSize: Tokens.fontXl
+                    }
                 }
-                Label {
-                    text: (root.islandSource && root.islandSource.media_title) || "Nothing playing"
-                    color: Tokens.text
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontSm
-                    elide: Text.ElideRight
+
+                ColumnLayout {
                     Layout.fillWidth: true
+                    spacing: 2
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.islandSource
+                              ? (root.islandSource.media_title || "Nothing playing")
+                              : "Nothing playing"
+                        color: Tokens.text
+                        font.family: Tokens.fontFamily
+                        font.pixelSize: Tokens.fontMd
+                        font.bold: true
+                        elide: Text.ElideRight
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.islandSource
+                              ? (root.islandSource.media_artist || "--")
+                              : "--"
+                        color: Tokens.textMuted
+                        font.family: Tokens.fontFamily
+                        font.pixelSize: Tokens.fontSm
+                        elide: Text.ElideRight
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.islandSource
+                              ? (root.islandSource.media_player || "")
+                              : ""
+                        color: Tokens.textDim
+                        font.family: Tokens.monoFamily
+                        font.pixelSize: Tokens.fontXs
+                        visible: root.islandSource
+                                 && root.islandSource.media_player.length > 0
+                    }
                 }
-                Label {
-                    text: (root.islandSource && root.islandSource.media_artist) || "--"
-                    color: Tokens.textMuted
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontXs
+
+                // Media controls
+                RowLayout {
+                    spacing: 4
+                    Button {
+                        text: "\u23EE"
+                        enabled: root.islandSource !== null
+                        font.pixelSize: Tokens.fontMd
+                        onClicked: if (root.islandSource) root.islandSource.lock()
+                    }
+                    Button {
+                        text: root.islandSource && root.islandSource.media_playing
+                              ? "\u23F8" : "\u25B6"
+                        enabled: root.islandSource !== null
+                        font.pixelSize: Tokens.fontMd
+                    }
+                    Button {
+                        text: "\u23ED"
+                        enabled: root.islandSource !== null
+                        font.pixelSize: Tokens.fontMd
+                    }
                 }
             }
 
-            ColumnLayout {
+            // Visualizer bar in media section
+            Item {
                 Layout.fillWidth: true
-                spacing: 6
+                Layout.preferredHeight: 22
+                visible: root.visualizer !== null && root.visualizer.running
+                         && root.islandSource && root.islandSource.media_playing
+
+                property var bars: []
+
+                Connections {
+                    target: root.visualizer
+                    function onBars_jsonChanged() {
+                        if (!root.visualizer) return;
+                        try {
+                            parent.bars = JSON.parse(root.visualizer.bars_json || "[]");
+                        } catch (e) {
+                            parent.bars = [];
+                        }
+                    }
+                }
 
                 RowLayout {
-                    Layout.fillWidth: true
+                    anchors.fill: parent
+                    spacing: 1
+                    Repeater {
+                        model: parent.bars
+                        delegate: Rectangle {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.minimumHeight: 1
+                            Layout.maximumHeight: 22
+                            Layout.preferredHeight: Math.max(1, (modelData / 100.0) * 22)
+                            Layout.alignment: Qt.AlignBottom
+                            color: Tokens.accent
+                            radius: 1
+                            Behavior on Layout.preferredHeight {
+                                NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Tokens.border }
+
+            // System stats section
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                // CPU
+                RowLayout {
                     spacing: 8
                     Label {
-                        text: "ram"
+                        text: "CPU"
                         color: Tokens.textMuted
                         font.family: Tokens.monoFamily
                         font.pixelSize: Tokens.fontXs
-                        Layout.preferredWidth: 40
+                        Layout.preferredWidth: 36
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 6
+                        radius: 3
+                        color: Tokens.surfaceAlt
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: parent.width * (root.islandSource
+                                ? root.islandSource.cpu_percent / 100.0
+                                : 0)
+                            radius: 3
+                            color: Tokens.accent
+                            Behavior on width {
+                                NumberAnimation { duration: Tokens.duration }
+                            }
+                        }
+                    }
+                    Label {
+                        text: root.islandSource
+                              ? root.islandSource.cpu_percent.toFixed(1) + "%"
+                              : "--"
+                        color: Tokens.textMuted
+                        font.family: Tokens.monoFamily
+                        font.pixelSize: Tokens.fontXs
+                        Layout.preferredWidth: 52
+                        horizontalAlignment: Text.AlignRight
+                    }
+                }
+
+                // RAM
+                RowLayout {
+                    spacing: 8
+                    Label {
+                        text: "RAM"
+                        color: Tokens.textMuted
+                        font.family: Tokens.monoFamily
+                        font.pixelSize: Tokens.fontXs
+                        Layout.preferredWidth: 36
                     }
                     Rectangle {
                         Layout.fillWidth: true
@@ -229,43 +393,53 @@ Item {
                     }
                     Label {
                         text: root.islandSource
-                              ? (root.islandSource.ram_used_mb + " / " + root.islandSource.ram_total_mb + " MB")
+                              ? (root.islandSource.ram_used_mb + "/" + root.islandSource.ram_total_mb + " MB")
                               : "--"
                         color: Tokens.textMuted
                         font.family: Tokens.monoFamily
                         font.pixelSize: Tokens.fontXs
-                        Layout.preferredWidth: 130
                         horizontalAlignment: Text.AlignRight
                     }
                 }
 
+                // Battery
                 RowLayout {
-                    Layout.fillWidth: true
                     spacing: 8
+                    visible: root.islandSource && root.islandSource.battery_present
                     Label {
-                        text: "proc"
+                        text: "BAT"
                         color: Tokens.textMuted
                         font.family: Tokens.monoFamily
                         font.pixelSize: Tokens.fontXs
-                        Layout.preferredWidth: 40
+                        Layout.preferredWidth: 36
                     }
-                    Label {
+                    Rectangle {
                         Layout.fillWidth: true
-                        text: root.islandSource
-                              ? (root.islandSource.procs_running + " running / " + root.islandSource.procs_total + " total")
-                              : "--"
-                        color: Tokens.text
-                        font.family: Tokens.monoFamily
-                        font.pixelSize: Tokens.fontXs
+                        Layout.preferredHeight: 6
+                        radius: 3
+                        color: Tokens.surfaceAlt
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: parent.width * (root.islandSource
+                                ? root.islandSource.battery_percent / 100.0
+                                : 0)
+                            radius: 3
+                            color: root.islandSource && root.islandSource.battery_percent <= 15
+                                   ? Tokens.danger : Tokens.success
+                            Behavior on width {
+                                NumberAnimation { duration: Tokens.duration }
+                            }
+                        }
                     }
                     Label {
-                        text: "l5 " + (root.islandSource
-                              ? root.islandSource.load_avg_5.toFixed(2)
-                              : "--")
+                        text: root.islandSource
+                              ? root.islandSource.battery_percent + "% " + root.islandSource.battery_status
+                              : "--"
                         color: Tokens.textMuted
                         font.family: Tokens.monoFamily
                         font.pixelSize: Tokens.fontXs
-                        Layout.preferredWidth: 90
                         horizontalAlignment: Text.AlignRight
                     }
                 }
@@ -273,10 +447,10 @@ Item {
 
             Item { Layout.fillHeight: true }
 
+            // Power row
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 6
-
                 Button {
                     text: "lock"
                     font.family: Tokens.fontFamily
@@ -292,13 +466,6 @@ Item {
                     onClicked: if (root.islandSource) root.islandSource.suspend()
                 }
                 Button {
-                    text: "reboot"
-                    font.family: Tokens.fontFamily
-                    font.pixelSize: Tokens.fontXs
-                    enabled: root.islandSource !== null
-                    onClicked: if (root.islandSource) root.islandSource.reboot()
-                }
-                Button {
                     text: "logout"
                     font.family: Tokens.fontFamily
                     font.pixelSize: Tokens.fontXs
@@ -306,15 +473,19 @@ Item {
                     onClicked: if (root.islandSource) root.islandSource.logout()
                 }
                 Item { Layout.fillWidth: true }
-            }
 
-            Label {
-                text: (root.islandSource && root.islandSource.power_summary) || ""
-                color: Tokens.textDim
-                font.family: Tokens.monoFamily
-                font.pixelSize: Tokens.fontXs
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
+                // Connection status summary
+                Label {
+                    text: (root.network && root.network.connected
+                           ? "net up" : "net --")
+                          + " | "
+                          + (root.audio && !root.audio.muted
+                             ? "audio " + root.audio.volume_percent + "%"
+                             : "audio --")
+                    color: Tokens.textDim
+                    font.family: Tokens.monoFamily
+                    font.pixelSize: Tokens.fontXs
+                }
             }
         }
 
