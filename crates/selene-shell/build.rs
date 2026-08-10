@@ -89,6 +89,7 @@ fn main() {
         "src/clipboard.rs",
         "src/picker.rs",
         "src/lock.rs",
+        "src/ipc.rs",
         "src/config.rs",
         "src/island.rs",
         "src/network.rs",

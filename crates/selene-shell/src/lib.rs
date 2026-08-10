@@ -3,6 +3,7 @@ pub mod bluetooth;
 pub mod bridge;
 pub mod clipboard;
 pub mod config;
+pub mod ipc;
 pub mod island;
 pub mod lock;
 pub mod network;

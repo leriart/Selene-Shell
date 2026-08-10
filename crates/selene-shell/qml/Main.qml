@@ -150,6 +150,11 @@ ApplicationWindow {
         id: stateBackend
     }
 
+    IpcPalette {
+        id: ipcPaletteBackend
+        Component.onCompleted: ipcPaletteBackend.start_ipc()
+    }
+
     Lock {
         id: lockBackend
         Component.onCompleted: lockBackend.resolve_username()
@@ -208,6 +213,26 @@ ApplicationWindow {
             // Palette property is `text_color`; QML converts to camelCase
             // for the signal handler hook above this line.
             Tokens.text = paletteBackend.text_color;
+        }
+    }
+
+    Connections {
+        // External palette (cava-bg IPC). Accepts JSON push from
+        // outside, merges into Tokens when live.
+        target: ipcPaletteBackend
+        enabled: configBackend === null
+                 || configBackend.palette_follow_wallpaper
+        function onAccentChanged() {
+            Tokens.accent = ipcPaletteBackend.accent;
+        }
+        function onSurfaceChanged() {
+            Tokens.surface = ipcPaletteBackend.surface;
+        }
+        function onBackgroundChanged() {
+            Tokens.bg = ipcPaletteBackend.background;
+        }
+        function onText_colorChanged() {
+            Tokens.text = ipcPaletteBackend.text_color;
         }
     }
 
