@@ -60,6 +60,9 @@ pub mod qobject {
         fn apply_history_max(self: Pin<&mut Self>, max: i32);
 
         #[qinvokable]
+        fn expire_notifications(self: Pin<&mut Self>);
+
+        #[qinvokable]
         fn start_dbus(self: Pin<&mut Self>);
 
         #[qinvokable]
@@ -618,6 +621,39 @@ impl qobject::Notifier {
         }
         let mut this = self;
         this.as_mut().set_history_max(clamped);
+    }
+
+    pub fn expire_notifications(self: Pin<&mut Self>) {
+        let now = now_secs();
+        let mut changed = false;
+        if let Ok(mut store) = shared().lock() {
+            let before = store.entries.len();
+            store.entries.retain(|n| {
+                if n.expire_timeout > 0 {
+                    let elapsed = now.saturating_sub(n.timestamp);
+                    elapsed < n.expire_timeout as u64 / 1000
+                } else {
+                    true
+                }
+            });
+            if store.entries.len() != before {
+                changed = true;
+                persist_to_disk(&store);
+            }
+        }
+        if changed {
+            // Push fresh JSON to QML.
+            if let Ok(store) = shared().lock() {
+                let entries = entries_json(&store);
+                let status = status_json(&store);
+                let count = unread_count(&store);
+                drop(store);
+                let mut this = self;
+                this.as_mut().set_notifications_json(entries);
+                this.as_mut().set_status_json(status);
+                this.as_mut().set_unread_count(count);
+            }
+        }
     }
 
     pub fn apply_game_mode(self: Pin<&mut Self>, enabled: bool) {

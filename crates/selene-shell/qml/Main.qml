@@ -12,9 +12,24 @@ ApplicationWindow {
     width: typeof __seleneRenderSize !== "undefined" ? __seleneRenderSize.width : 720
     height: typeof __seleneRenderSize !== "undefined" ? __seleneRenderSize.height : 480
     title: "Selene -- Rust <-> Hyprland <-> QML"
-    color: Tokens.bg
+    color: typeof __seleneRenderSize !== "undefined" ? Tokens.bg : "transparent"
 
-    // Optional screenshot mode: when main.cpp is invoked with
+    // In a real Hyprland session the user is expected to add:
+    //   windowrulev2 = layershell, background, title:^Selene.*$
+    // in their hyprland.conf to make the shell a true background
+    // layer. Until then, we use a transparent frameless window so the
+    // wallpaper still shows through and none of our pixels compete
+    // with the compositor's output.
+    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnBottomHint
+
+    // When running in a live Hyprland session, make the window
+    // full-screen and keep it below normal windows so the wallpaper
+    // and the chrome show through without stealing input from apps.
+    // In headless (offscreen) mode we keep the explicit size so
+    // screenshots are reproducible.
+    visibility: typeof __seleneRenderSize !== "undefined"
+                ? Window.Windowed
+                : Window.Maximized
     // `--show=<panel>`, it sets this context property and we open the
     // matching panel before the QQuickWindow snapshot fires.
     property string screenshotPanel: typeof __seleneScreenshotPanel !== "undefined"
@@ -163,6 +178,14 @@ ApplicationWindow {
         running: true
         repeat: true
         onTriggered: paletteBackend.refresh()
+    }
+
+    Timer {
+        // Expire old notifications (every 10s).
+        interval: 10000
+        running: true
+        repeat: true
+        onTriggered: notifierBackend.expire_notifications()
     }
 
     Connections {
