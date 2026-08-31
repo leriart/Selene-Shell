@@ -75,6 +75,16 @@ Item {
                 cache: true
                 mipmap: true
                 opacity: 1.0
+
+                // Crossfade the front layer in only once the new
+                // pixmap is fully decoded -- no blank flash during
+                // the fade (the old frame stays visible until Ready).
+                onStatusChanged: {
+                    if (status === Image.Ready) {
+                        layerA.opacity = 1.0;
+                        layerB.opacity = 0.0;
+                    }
+                }
             }
 
             // Animated (gif/apng).
@@ -127,13 +137,19 @@ Item {
         }
 
         // Layer B — previous frame, holds the prior wallpaper so the
-        // front layer can crossfade over it.
+        // front layer can crossfade over it. `source`/`kind` are bound
+        // to the *previous* path at all times (never assigned at swap
+        // time), so the back layer's Image has already decoded the old
+        // wallpaper when the crossfade starts -- no blank flash.
         Rectangle {
             id: layerB
             anchors.fill: parent
             color: "black"
             visible: opacity > 0.001
             opacity: 0.0
+
+            readonly property string source: root._previousPath
+            readonly property string kind: root._previousKind
 
             Image {
                 anchors.fill: parent
@@ -160,9 +176,6 @@ Item {
                 fillMode: VideoOutput.PreserveAspectCrop
                 visible: layerB.kind === "video" && layerB.source.length > 0
             }
-
-            property string source: ""
-            property string kind: ""
         }
     }
 
@@ -202,17 +215,15 @@ Item {
 
     function _swapLayers() {
         if (_resolvedPath === _previousPath) return;
-        // Hold the prior frame on layer B.
-        layerB.source = _previousPath;
-        layerB.kind = _previousKind;
-        layerB.opacity = 1.0;
-        layerA.opacity = 0.0;
-        // Fade in the front layer over the back layer.
-        layerA.opacity = 1.0;
-        // Tear down the back layer once the crossfade completes.
-        crossfadeTimer.restart();
+        // Record the new previous BEFORE mutating the front layer so
+        // layerB's bindings re-evaluate to the old source, then fade.
+        const oldPath = _previousPath;
+        const oldKind = _previousKind;
         _previousPath = _resolvedPath;
         _previousKind = _resolvedKind;
+        layerB.opacity = 1.0;
+        layerA.opacity = 0.0;
+        crossfadeTimer.restart();
     }
 
     Connections {
@@ -230,7 +241,13 @@ Item {
         id: crossfadeTimer
         interval: Tokens.animDuration("standard", "medium")
         repeat: false
-        onTriggered: layerB.opacity = 0.0
+        onTriggered: {
+            // Animated/video crossfade fallback: the front layer is
+            // considered "ready" when the source resolved; static
+            // images already fade in via imgA.onStatusChanged.
+            layerB.opacity = 0.0;
+            layerA.opacity = 1.0;
+        }
     }
 
     Component.onCompleted: {

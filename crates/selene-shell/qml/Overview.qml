@@ -3,10 +3,12 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // Workspace overview (NothingLess Overview port) -- a grid of the
-// current Hyprland workspaces with window counts. Clicking a card
-// dispatches `workspace <id>` through the Bridge and closes the
-// overlay. Toggled with SUPER+TAB, the sidebar button, or
-// `selene run overview`.
+// current Hyprland workspaces. Each card renders the workspace number
+// plus up to four "window tiles" (class + title) from the live
+// `windows_json` the Bridge pulls from `hyprctl clients -j`. Clicking
+// a card dispatches `workspace <id>` and closes the overlay.
+//
+// Toggled with SUPER+TAB, the sidebar button, or `selene run overview`.
 Rectangle {
     id: root
 
@@ -14,8 +16,9 @@ Rectangle {
     property var bridge: null
     property var config: null
 
-    // Parsed copy of bridge.workspaces_json.
+    // Parsed copies of bridge state.
     property var workspaces: []
+    property var windows: []
 
     visible: false
     color: Qt.rgba(0, 0, 0, 0.55)
@@ -30,18 +33,37 @@ Rectangle {
     function close() { visible = false; }
 
     function reload() {
-        if (!bridge) { workspaces = []; return; }
+        if (!bridge) { workspaces = []; windows = []; return; }
         try {
-            const parsed = JSON.parse(bridge.workspaces_json || "[]");
-            workspaces = Array.isArray(parsed) ? parsed : [];
+            const ws = JSON.parse(bridge.workspaces_json || "[]");
+            workspaces = Array.isArray(ws) ? ws : [];
         } catch (e) {
             workspaces = [];
         }
+        try {
+            const w = JSON.parse(bridge.windows_json || "[]");
+            windows = Array.isArray(w) ? w : [];
+        } catch (e) {
+            windows = [];
+        }
+    }
+
+    // Windows on a given workspace id, capped at 6 per card.
+    function windowsOn(wsId) {
+        const out = [];
+        for (let i = 0; i < windows.length; ++i) {
+            if (windows[i].workspace_id === wsId) {
+                out.push(windows[i]);
+                if (out.length >= 6) break;
+            }
+        }
+        return out;
     }
 
     Connections {
         target: root.bridge
         function onWorkspaces_jsonChanged() { root.reload(); }
+        function onWindows_jsonChanged() { root.reload(); }
     }
 
     MouseArea {
@@ -105,9 +127,10 @@ Rectangle {
                     delegate: Rectangle {
                         id: wsCard
                         required property var modelData
+                        required property int index
 
-                        implicitWidth: 148
-                        implicitHeight: 96
+                        implicitWidth: 160
+                        implicitHeight: 112
                         radius: Tokens.radiusMd
                         color: wsCard.modelData.active
                                ? Qt.rgba(Tokens.accent.r, Tokens.accent.g, Tokens.accent.b, 0.18)
@@ -121,29 +144,73 @@ Rectangle {
                             ColorAnimation { duration: Tokens.durationFast }
                         }
 
+                        // Workspace label + window tiles.
                         ColumnLayout {
-                            anchors.centerIn: parent
-                            spacing: Tokens.spacingXs
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 4
 
                             Label {
-                                Layout.alignment: Qt.AlignHCenter
-                                text: wsCard.modelData.name && wsCard.modelData.name !== String(wsCard.modelData.id)
+                                Layout.alignment: Qt.AlignLeft
+                                text: wsCard.modelData.name
+                                      && wsCard.modelData.name !== String(wsCard.modelData.id)
                                       ? wsCard.modelData.name
                                       : "Workspace " + wsCard.modelData.id
                                 color: wsCard.modelData.active ? Tokens.accent : Tokens.text
                                 font.family: Tokens.fontFamily
-                                font.pixelSize: Tokens.fontMd
+                                font.pixelSize: Tokens.fontSm
                                 font.bold: wsCard.modelData.active
                                 elide: Text.ElideRight
                             }
 
+                            // Window tiles: class glyph + short title.
+                            Repeater {
+                                model: root.windowsOn(wsCard.modelData.id)
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 18
+                                    radius: 4
+                                    color: Qt.rgba(1, 1, 1, 0.06)
+
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 6
+                                        anchors.rightMargin: 6
+                                        spacing: 6
+
+                                        Label {
+                                            width: 20
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: modelData.class
+                                                  ? modelData.class.charAt(0).toUpperCase()
+                                                  : "?"
+                                            color: Tokens.accent
+                                            font.family: Tokens.monoFamily
+                                            font.pixelSize: Tokens.fontXs
+                                        }
+                                        Label {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width - 32
+                                            text: modelData.title || modelData.class || "window"
+                                            color: Tokens.textMuted
+                                            font.family: Tokens.fontFamily
+                                            font.pixelSize: Tokens.fontXs
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Window count footer.
+                            Item { Layout.fillHeight: true }
                             Label {
-                                Layout.alignment: Qt.AlignHCenter
+                                Layout.alignment: Qt.AlignRight
                                 text: (wsCard.modelData.windows || 0)
-                                      + (wsCard.modelData.windows === 1 ? " window" : " windows")
-                                color: Tokens.textMuted
-                                font.family: Tokens.fontFamily
-                                font.pixelSize: Tokens.fontSm
+                                      + " window" + (wsCard.modelData.windows === 1 ? "" : "s")
+                                color: Tokens.textDim
+                                font.family: Tokens.monoFamily
+                                font.pixelSize: Tokens.fontXs
                             }
                         }
 

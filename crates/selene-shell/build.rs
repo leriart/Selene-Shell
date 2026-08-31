@@ -38,6 +38,7 @@ fn main() {
         "qml/OsdPopup.qml".into(),
         "qml/NotesPanel.qml".into(),
         "qml/TodoPanel.qml".into(),
+        "qml/TerminalPanel.qml".into(),
         QmlFile::from("qml/GameFocusMode.qml").singleton(true),
     ];
 
@@ -124,6 +125,9 @@ fn main() {
         .resource(QResource::new().file(
             QResourceFile::new("qml/TodoPanel.qml").alias("qml/TodoPanel.qml"),
         ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/TerminalPanel.qml").alias("qml/TerminalPanel.qml"),
+        ))
         // Bundled assets -- the .qml side references them as qrc:/assets/*.
         .resource(QResource::new().file(
             QResourceFile::new("../../assets/logo-dark.png").alias("assets/logo-dark.png"),
@@ -151,6 +155,7 @@ fn main() {
         "src/network.rs",
         "src/night_light.rs",
         "src/notes.rs",
+        "src/packages.rs",
         "src/notifications.rs",
         "src/palette.rs",
         "src/power_profile.rs",
@@ -158,6 +163,7 @@ fn main() {
         "src/spawner.rs",
         "src/state.rs",
         "src/sysinfo.rs",
+        "src/terminal.rs",
         "src/todo.rs",
         "src/visualizer.rs",
         "src/wallpaper.rs",

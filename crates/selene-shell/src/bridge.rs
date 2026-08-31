@@ -33,6 +33,7 @@ pub mod qobject {
         #[qproperty(i32, workspace_count)]
         // JSON [{id, name, windows, active}] for the Overview grid.
         #[qproperty(QString, workspaces_json)]
+        #[qproperty(QString, windows_json)]
         #[qproperty(QString, active_window_class)]
         #[qproperty(QString, active_window_title)]
         #[qproperty(QString, hyprland_status)]
@@ -67,6 +68,7 @@ pub struct BridgeRust {
     active_workspace_name: QString,
     workspace_count: i32,
     workspaces_json: QString,
+    windows_json: QString,
     active_window_class: QString,
     active_window_title: QString,
     hyprland_status: QString,
@@ -117,6 +119,34 @@ impl qobject::Bridge {
                         .unwrap_or_else(|_| "[]".to_string())
                         .as_str(),
                 ));
+
+                // Per-workspace window list for the Overview cards:
+                // one `hyprctl clients -j` round-trip, then group by
+                // workspace id in Rust.
+                if let Ok(clients) = hyprland::data::Clients::get() {
+                    let mut wins: Vec<serde_json::Value> = Vec::new();
+                    for c in clients.to_vec() {
+                        if c.mapped {
+                            wins.push(serde_json::json!({
+                                "address": c.address.to_string(),
+                                "class": c.class,
+                                "title": c.title,
+                                "workspace_id": c.workspace.id,
+                                "workspace_name": c.workspace.name,
+                                "floating": c.floating,
+                                "fullscreen": !matches!(
+                                    c.fullscreen,
+                                    hyprland::data::FullscreenMode::None
+                                ),
+                            }));
+                        }
+                    }
+                    this.as_mut().set_windows_json(QString::from(
+                        serde_json::to_string(&wins)
+                            .unwrap_or_else(|_| "[]".to_string())
+                            .as_str(),
+                    ));
+                }
             }
             Err(err) => {
                 this.as_mut().set_connected(false);

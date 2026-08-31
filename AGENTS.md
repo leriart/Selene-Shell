@@ -222,6 +222,10 @@ gate; `cargo clippy` is not run in CI yet.
 | Night light | `crates/selene-shell/src/night_light.rs` (wlsunset) |
 | Power menu | `crates/selene-shell/qml/PowerMenu.qml` (SUPER+ESC) |
 | Keybind cheatsheet | `crates/selene-shell/qml/KeybindsPanel.qml` (reads `binds` from init.lua) |
+| Notes | `crates/selene-shell/src/notes.rs` + `qml/NotesPanel.qml` |
+| Todo board | `crates/selene-shell/src/todo.rs` + `qml/TodoPanel.qml` |
+| Embedded terminal | `crates/selene-shell/src/terminal.rs` + `qml/TerminalPanel.qml` (SUPER+Return) |
+| Package search | `crates/selene-shell/src/packages.rs` (used via Launcher `install <query>`) |
 | Screen recording | `crates/selene-shell/src/screenshot.rs` (wf-recorder, `record_*` invokables) |
 | Wallpaper engine | `crates/selene-shell/src/wallpaper_engine.rs` (hw video decode, downscale cache, pause mask) |
 | Notes | `crates/selene-shell/src/notes.rs` + `qml/NotesPanel.qml` |

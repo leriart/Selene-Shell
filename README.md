@@ -89,15 +89,33 @@ panels: `launcher`, `dashboard`, `overview`, `powermenu`, `binds`,
 
 ### Keybinds
 
-| Keybind            | Action                       |
-|--------------------|------------------------------|
-| `SUPER`            | Toggle the launcher          |
-| `SUPER + D`        | Toggle the dashboard         |
-| `SUPER + TAB`      | Toggle the overview          |
-| `SUPER + ESC`      | Open the power menu          |
-| `Ctrl + Alt + Left`| Previous wallpaper           |
-| `Ctrl + Alt + Right`| Next wallpaper              |
-| `Escape`           | Close the focused panel      |
+The shell ships an Ambxst-style bind set. The installer writes
+`hyprland.conf` (or `hyprland.lua`) under `~/.local/share/selene/`;
+each bind is a `selene --send ...` IPC to the running instance so
+Hyprland consumes the keypress before any focused client sees it.
+
+| Keybind             | Action                       |
+|---------------------|------------------------------|
+| `SUPER`             | Toggle the launcher          |
+| `SUPER + Space`     | Toggle the launcher          |
+| `SUPER + D`         | Dashboard                    |
+| `SUPER + A`         | Settings                     |
+| `SUPER + L`         | Lock the session             |
+| `SUPER + V`         | Clipboard history            |
+| `SUPER + .`         | Color picker                 |
+| `SUPER + N`         | Notes                        |
+| `SUPER + T`         | Todo board                   |
+| `SUPER + K`         | Keybinds cheatsheet          |
+| `SUPER + Return`     | Embedded terminal            |
+| `SUPER + Tab` / `\`| Overview                      |
+| `SUPER + Escape`    | Power menu                   |
+| `SUPER + Pause`     | Caffeine (idle inhibit)      |
+| `SUPER SHIFT + R`   | Hot-reload the shell         |
+| `SUPER SHIFT + B`   | Cycle power profile          |
+| `SUPER SHIFT + N`   | Toggle do-not-disturb        |
+| `SUPER SHIFT + P`   | Toggle caffeine              |
+| `SUPER SHIFT + Esc` | Quit the shell               |
+| `Ctrl+Alt+Left/Right`| Previous / next wallpaper   |
 
 ---
 

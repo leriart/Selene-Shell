@@ -20,6 +20,8 @@ mlua = { version = "0.12", default-features = false, features = ["lua54"] }
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 zbus = { version = "5.18.0", features = ["blocking"] }
 notify = "8.2.0"
+pty = "0.2"
+libc = "0.2"
 
 [build-dependencies]
 cxx-qt-build = "0.9"

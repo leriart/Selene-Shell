@@ -52,7 +52,7 @@ EOF
 }
 
 # Panels / actions understood by Main.qml's applyScreenshotPanel().
-SELENE_PANELS="launcher|notif|walls|settings|audio|net|bt|sidebar|clipboard|picker|island|dashboard|overview|powermenu|binds|notes|todo|metrics|weather|gamemode|focusmode|dnd|caffeine|nightlight|record|record-screen|record-stop|lock|suspend"
+SELENE_PANELS="launcher|notif|walls|settings|audio|net|bt|sidebar|clipboard|picker|island|dashboard|overview|powermenu|binds|notes|todo|terminal|metrics|weather|gamemode|focusmode|dnd|caffeine|nightlight|record|record-screen|record-stop|lock|suspend"
 
 # Send a command to the running instance; returns non-zero when no
 # instance is listening so callers can fall back to direct execution.
@@ -70,7 +70,7 @@ cmd_run() {
   case "$panel" in
     "")
       exec "$SELENE_BIN" ;;
-    launcher|notif|walls|settings|audio|net|bt|sidebar|clipboard|picker|island|dashboard|overview|powermenu|binds|notes|todo|metrics|weather|gamemode|focusmode|dnd|caffeine|nightlight|record|record-screen|record-stop|lock|suspend)
+    launcher|notif|walls|settings|audio|net|bt|sidebar|clipboard|picker|island|dashboard|overview|powermenu|binds|notes|todo|terminal|metrics|weather|gamemode|focusmode|dnd|caffeine|nightlight|record|record-screen|record-stop|lock|suspend)
       # Live instance first; otherwise start the shell with the panel.
       if selene_send "show $panel"; then
         exit 0
@@ -379,10 +379,34 @@ LUAEOF
 # exec-once launches Selene on login.
 exec-once = $SELENE_BIN
 
-# Default appearance keybinds.
+# Default appearance keybinds (Ambxst / NothingLess standard). Each
+# bind calls `selene --send ...` which is intercepted by the running
+# shell instance (or launched directly if no instance is alive).
+# Hyprland consumes the keypress before any focused client sees it.
 \$mainMod = SUPER
-bind = \$mainMod SHIFT, R, exec, $SELENE_BIN --send reload
-bind = \$mainMod SHIFT, escape, exec, $SELENE_BIN --send quit
+bind = \$mainMod,         space, exec, $SELENE_BIN --send show launcher
+bind = \$mainMod,         D, exec, $SELENE_BIN --send show dashboard
+bind = \$mainMod,         A, exec, $SELENE_BIN --send show settings
+bind = \$mainMod,         V, exec, $SELENE_BIN --send show clipboard
+bind = \$mainMod,         period, exec, $SELENE_BIN --send show picker
+bind = \$mainMod,         N, exec, $SELENE_BIN --send show notes
+bind = \$mainMod,         T, exec, $SELENE_BIN --send show todo
+bind = \$mainMod,         Return, exec, $SELENE_BIN --send show terminal
+bind = \$mainMod,         K, exec, $SELENE_BIN --send show binds
+bind = \$mainMod,         grave, exec, $SELENE_BIN --send show overview
+bind = \$mainMod,         tab, exec, $SELENE_BIN --send show overview
+bind = \$mainMod,         L, exec, $SELENE_BIN --send show lock
+bind = \$mainMod,         escape, exec, $SELENE_BIN --send show powermenu
+bind = \$mainMod SHIFT,    C, exec, $SELENE_BIN --send show settings
+bind = \$mainMod SHIFT,    V, exec, $SELENE_BIN --send show clipboard
+bind = \$mainMod SHIFT,    B, exec, $SELENE_BIN --send cycle-profile
+bind = \$mainMod SHIFT,    N, exec, $SELENE_BIN --send dnd
+bind = \$mainMod SHIFT,    P, exec, $SELENE_BIN --send caffeine
+bind = \$mainMod SHIFT,    R, exec, $SELENE_BIN --send reload
+bind = \$mainMod SHIFT,    escape, exec, $SELENE_BIN --send quit
+bind = \$mainMod,          Pause, exec, $SELENE_BIN --send caffeine
+bind = Ctrl Alt,         Left, exec, $SELENE_BIN --send wp-prev
+bind = Ctrl Alt,         Right, exec, $SELENE_BIN --send wp-next
 
 # Layer rules for compositor-side blur.
 layerrule = blur, namespace:selene-shell
@@ -450,6 +474,8 @@ cmd="${1:-run}"
 shift || true
 
 case "$cmd" in
+  wp-prev)        selene_send "wp-prev" ;;
+  wp-next)        selene_send "wp-next" ;;
   run|"")         cmd_run "${1:-}" ;;
   reload)         cmd_reload ;;
   quit)           cmd_quit ;;

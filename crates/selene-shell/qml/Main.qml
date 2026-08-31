@@ -11,26 +11,19 @@ ApplicationWindow {
     visible: true
     width: typeof __seleneRenderSize !== "undefined" ? __seleneRenderSize.width : 720
     height: typeof __seleneRenderSize !== "undefined" ? __seleneRenderSize.height : 480
-    title: "Selene -- Rust <-> Hyprland <-> QML"
+    title: "Selene"
     color: typeof __seleneRenderSize !== "undefined" ? Tokens.bg : "transparent"
 
-    // In a real Hyprland session the user is expected to add:
-    //   layerrule = blur, namespace:selene-shell
-    //   layerrule = ignorealpha 0.4, namespace:selene-shell
-    // in their hyprland.lua to make the shell windows render with
-    // backdrop blur at the compositor level. Until then, we use a
-    // transparent frameless window so the wallpaper still shows
-    // through and none of our pixels compete with the compositor.
-    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnBottomHint
-
-    // When running in a live Hyprland session, make the window
-    // full-screen and keep it below normal windows so the wallpaper
-    // and the chrome show through without stealing input from apps.
-    // In headless (offscreen) mode we keep the explicit size so
-    // screenshots are reproducible.
-    visibility: typeof __seleneRenderSize !== "undefined"
-                ? Window.Windowed
-                : Window.Maximized
+    // No title bar, no taskbar entry, never steals focus on activation,
+    // and stays at the bottom of the compositor's regular-window stack.
+    // Hyprland's `layerrule = blur, namespace:selene-shell` still
+    // applies because Qt sets the Wayland app_id to `selene-shell`.
+    // Real z-order isolation would need zwlr-layer-shell, which Qt
+    // 6.11 does not expose; we live with the limitation and the user
+    // opens the launcher via Hyprland binds (which consume the key
+    // before any focused client sees it).
+    flags: Qt.FramelessWindowHint
+        | Qt.WindowStaysOnBottomHint
     // `--show=<panel>`, it sets this context property and we open the
     // matching panel before the QQuickWindow snapshot fires.
     property string screenshotPanel: typeof __seleneScreenshotPanel !== "undefined"
@@ -73,6 +66,16 @@ ApplicationWindow {
         case "record-stop": screenshotBackend.record_stop(); break;
         case "lock":      lockBackend.lock(); break;
         case "suspend":   islandBackend.suspend(); break;
+        case "cycle-profile":
+            if (powerProfileBackend) powerProfileBackend.cycle();
+            break;
+        case "wp-prev":
+            if (wallpaperBackend) wallpaperBackend.previous_wall();
+            break;
+        case "wp-next":
+            if (wallpaperBackend) wallpaperBackend.next_wall();
+            break;
+        case "terminal": terminalPanel.toggle(); break;
         }
     }
 
@@ -603,6 +606,7 @@ ApplicationWindow {
         resources: resourcesBackend
         weather: weatherBackend
         island: islandBackend
+        packages: packagesBackend
         Keys.onEscapePressed: launcher.close()
     }
 
@@ -751,6 +755,10 @@ ApplicationWindow {
         Component.onCompleted: notesBackend.refresh()
     }
 
+    Packages {
+        id: packagesBackend
+    }
+
 
     TodoBoard {
         id: todoBackend
@@ -767,11 +775,23 @@ ApplicationWindow {
     }
 
 
+
+    Terminal {
+        id: terminalBackend
+    }
+
     TodoPanel {
         id: todoPanel
         anchors.fill: parent
         z: 1975
         board: todoBackend
+    }
+
+    TerminalPanel {
+        id: terminalPanel
+        anchors.fill: parent
+        z: 1977
+        terminal: terminalBackend
     }
 
     LockScreen {

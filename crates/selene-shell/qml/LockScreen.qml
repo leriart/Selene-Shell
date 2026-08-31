@@ -65,6 +65,64 @@ Rectangle {
             anchors.margins: 24
             spacing: 14
 
+            // Avatar -- AccountsService icon when present, otherwise
+            // a circle with the user's initials (always renders, no
+            // external file dependency).
+            Rectangle {
+                id: avatar
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 64
+                Layout.preferredHeight: 64
+                radius: 32
+                color: Qt.rgba(Tokens.accent.r, Tokens.accent.g,
+                               Tokens.accent.b, 0.18)
+                border.color: Tokens.accent
+                border.width: 1.4
+
+                // Prefer a real face file.
+                readonly property string facePath: {
+                    if (!root.username.length) return "";
+                    const candidates = [
+                        "/var/lib/AccountsService/icons/" + root.username,
+                        "/home/" + root.username + "/.face",
+                        "/home/" + root.username + "/.face.icon"
+                    ];
+                    for (let i = 0; i < candidates.length; ++i) {
+                        if (selene_file_exists(candidates[i]))
+                            return candidates[i];
+                    }
+                    return "";
+                }
+                function selene_file_exists(p) {
+                    // QML has no direct stat; probe with an Image
+                    // whose status is checked below.
+                    return true; // always try; Image falls back
+                }
+
+                Image {
+                    id: avatarImage
+                    anchors.fill: parent
+                    anchors.margins: 2
+                    source: avatar.facePath.length > 0
+                            ? "file://" + avatar.facePath : ""
+                    fillMode: Image.PreserveAspectCrop
+                    smooth: true
+                    visible: status === Image.Ready
+                }
+
+                Label {
+                    anchors.centerIn: parent
+                    visible: avatarImage.status !== Image.Ready
+                    text: root.username.length > 0
+                          ? root.username.substring(0, 1).toUpperCase()
+                          : "\u263D"
+                    color: Tokens.accent
+                    font.family: Tokens.fontFamily
+                    font.pixelSize: Tokens.fontXl
+                    font.bold: true
+                }
+            }
+
             Label {
                 Layout.alignment: Qt.AlignHCenter
                 text: "selene"

@@ -32,6 +32,7 @@ Rectangle {
     property var resources: null     // SystemResources (stats command)
     property var weather: null       // Weather backend (weather command)
     property var island: null        // Island backend (battery for stats)
+    property var packages: null      // Packages (install <query> command)
 
     visible: false
     color: Qt.rgba(0, 0, 0, 0.55)
@@ -363,6 +364,44 @@ Rectangle {
             return;
         }
 
+        // == install <query> -- package search (Brain_Shell / Hax port)
+        if (cmd === "install") {
+            if (!packages) {
+                results = [{ kind: "install", label: "package search unavailable",
+                              primary: "", missing: true }];
+                return;
+            }
+            const pkgQuery = words.slice(1).join(" ");
+            if (pkgQuery.length === 0) {
+                results = [{ kind: "install",
+                              label: "usage: install <query>",
+                              primary: "" }];
+                return;
+            }
+            packages.search(pkgQuery);
+            // Show the latest backend results if we already have some;
+            // otherwise an empty list (the worker populates the field
+            // asynchronously and re-running update() picks them up).
+            let parsed = [];
+            try { parsed = JSON.parse(packages.results_json || "[]"); }
+            catch (e) { parsed = []; }
+            const out = [];
+            for (let i = 0; i < parsed.length; ++i) {
+                const h = parsed[i];
+                out.push({
+                    kind: "install",
+                    label: h.name + "  " + (h.version || ""),
+                    secondary: h.description || "",
+                    primary: h.name,
+                    source: h.source,
+                    name: h.name
+                });
+                if (out.length >= 12) break;
+            }
+            results = out;
+            return;
+        }
+
         // == @ apps / > actions / fuzzy ====================================
         const bag = isAction ? actionEntries : appEntries;
         const out = [];
@@ -477,6 +516,20 @@ Rectangle {
                 }
             }
 
+            // When the package worker fills `results_json` asynchronously,
+            // re-run update() so the user sees the list as it arrives.
+            Connections {
+                target: root.packages ? root.packages : null
+                function onResults_jsonChanged() {
+                    // Only refresh if the user is currently typing an
+                    // `install ...` query so we don't clobber other
+                    // launcher contexts.
+                    if (input.text.trim().toLowerCase().indexOf("install") === 0)
+                        update();
+                }
+                enabled: root.packages !== null
+            }
+
             delegate: Item {
                 width: ListView.view.width
                 height: 52
@@ -525,6 +578,10 @@ Rectangle {
                                 : modelData.kind === "stats" ? "\u{1F4CA}"
                                 : modelData.kind === "weather" ? "\u2600"
                                 : modelData.kind === "lock" ? "\u{1F512}"
+                                : modelData.kind === "install"
+                                    ? (modelData.source === "aur" ? "\u{1F984}"
+                                       : modelData.source === "flatpak" ? "\u{1F4E6}"
+                                       : "\u{1F4E6}")
                                 : modelData.kind === "help" ? "?"
                                 : "?"
                             color: Tokens.accent
@@ -555,6 +612,8 @@ Rectangle {
                                    : (modelData.durationLabel || ""))
                             : modelData.kind === "stats"
                                 ? "cpu " + modelData.cpu + "%  ram " + modelData.ram + "%"
+                                : modelData.kind === "install"
+                                    ? (modelData.source || "pkg")
                                 : modelData.kind === "weather"
                                     ? (modelData.temp + "\u00B0C")
                                 : modelData.exec
@@ -618,6 +677,19 @@ Rectangle {
         if (item.kind === "timer-active") {
             removeTimer(item.timerIndex);
             update();
+            return;
+        }
+        if (item.kind === "install") {
+            // Each install-pkg result is a package to install. Run
+            // the right installer per source.
+            if (!spawner || !item.name) return;
+            const cmd = item.source === "aur"
+                ? `yay -S --noconfirm "${item.name}"`
+                : item.source === "flatpak"
+                    ? `flatpak install -y "${item.name}"`
+                    : `pkexec pacman -S --noconfirm "${item.name}"`;
+            spawner.launch(cmd);
+            root.close();
             return;
         }
         if (item.kind === "stats" || item.kind === "weather"

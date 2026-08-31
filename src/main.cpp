@@ -13,6 +13,7 @@ int main(int argc, char* argv[])
 {
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("selene-shell"));
+    QGuiApplication::setDesktopFileName(QStringLiteral("selene-shell"));
     QGuiApplication::setOrganizationName(QStringLiteral("selene-shell"));
     QGuiApplication::setOrganizationDomain(QStringLiteral("github.com"));
 
@@ -168,6 +169,17 @@ int main(int argc, char* argv[])
                 QMetaObject::invokeMethod(
                     roots.first(), "applyScreenshotPanel",
                     Q_ARG(QString, panel));
+            }
+            return;
+        }
+        // Bare commands the shell handles outside of `show <panel>`.
+        if (cmd == QLatin1String("wp-prev")
+            || cmd == QLatin1String("wp-next")) {
+            const auto roots = engine.rootObjects();
+            if (!roots.isEmpty()) {
+                QMetaObject::invokeMethod(
+                    roots.first(), "applyScreenshotPanel",
+                    Q_ARG(QString, cmd));
             }
             return;
         }
