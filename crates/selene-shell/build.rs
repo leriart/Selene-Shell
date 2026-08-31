@@ -26,6 +26,19 @@ fn main() {
         "qml/Sidebar.qml".into(),
         "qml/SidebarButton.qml".into(),
         "qml/SidebarBadge.qml".into(),
+        "qml/Dashboard.qml".into(),
+        "qml/MetricsPanel.qml".into(),
+        "qml/WeatherPanel.qml".into(),
+        "qml/Overview.qml".into(),
+        "qml/PowerMenu.qml".into(),
+        "qml/KeybindsPanel.qml".into(),
+        "qml/Orbit.qml".into(),
+        "qml/Moon.qml".into(),
+        "qml/MoonPulse.qml".into(),
+        "qml/OsdPopup.qml".into(),
+        "qml/NotesPanel.qml".into(),
+        "qml/TodoPanel.qml".into(),
+        QmlFile::from("qml/GameFocusMode.qml").singleton(true),
     ];
 
     // QML files are listed here so they get compiled into the binary's
@@ -72,6 +85,45 @@ fn main() {
         .resource(QResource::new().file(
             QResourceFile::new("qml/BluetoothPanel.qml").alias("qml/BluetoothPanel.qml"),
         ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/Dashboard.qml").alias("qml/Dashboard.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/MetricsPanel.qml").alias("qml/MetricsPanel.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/WeatherPanel.qml").alias("qml/WeatherPanel.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/Overview.qml").alias("qml/Overview.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/GameFocusMode.qml").alias("qml/GameFocusMode.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/PowerMenu.qml").alias("qml/PowerMenu.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/KeybindsPanel.qml").alias("qml/KeybindsPanel.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/Orbit.qml").alias("qml/Orbit.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/Moon.qml").alias("qml/Moon.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/MoonPulse.qml").alias("qml/MoonPulse.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/OsdPopup.qml").alias("qml/OsdPopup.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/NotesPanel.qml").alias("qml/NotesPanel.qml"),
+        ))
+        .resource(QResource::new().file(
+            QResourceFile::new("qml/TodoPanel.qml").alias("qml/TodoPanel.qml"),
+        ))
         // Bundled assets -- the .qml side references them as qrc:/assets/*.
         .resource(QResource::new().file(
             QResourceFile::new("../../assets/logo-dark.png").alias("assets/logo-dark.png"),
@@ -89,6 +141,7 @@ fn main() {
         "src/audio.rs",
         "src/bluetooth.rs",
         "src/bridge.rs",
+        "src/brightness.rs",
         "src/clipboard.rs",
         "src/picker.rs",
         "src/lock.rs",
@@ -96,12 +149,20 @@ fn main() {
         "src/config.rs",
         "src/island.rs",
         "src/network.rs",
+        "src/night_light.rs",
+        "src/notes.rs",
         "src/notifications.rs",
         "src/palette.rs",
+        "src/power_profile.rs",
+        "src/screenshot.rs",
         "src/spawner.rs",
         "src/state.rs",
+        "src/sysinfo.rs",
+        "src/todo.rs",
         "src/visualizer.rs",
         "src/wallpaper.rs",
+        "src/wallpaper_engine.rs",
+        "src/weather.rs",
     ])
     .build();
 }

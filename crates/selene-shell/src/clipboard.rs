@@ -8,7 +8,6 @@
 use core::pin::Pin;
 use cxx_qt_lib::QString;
 use std::process::Command;
-use std::sync::Mutex;
 
 /// Clipboard history -- wraps `cliphist list / store / delete`. Items
 /// arrive in `<id>\t<content>` form, one item per line; multi-line
@@ -82,8 +81,6 @@ struct Entry {
     preview: String,
     full: String,
 }
-
-static WATCHER_PID: Mutex<Option<u32>> = Mutex::new(None);
 
 fn run_cliphist(args: &[&str]) -> Option<String> {
     let out = Command::new("cliphist").args(args).output().ok()?;

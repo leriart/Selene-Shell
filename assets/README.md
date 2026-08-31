@@ -5,22 +5,20 @@ These get bundled into the `selene-shell` binary via `qrc` at
 
 | File | Purpose |
 |---|---|
-| `logo-dark.png` | Selene silhouette on transparent background. Used by the Bar and the README `<picture>` tag in light mode. |
-| `logo-white.png` | Same silhouette, white. Used in dark mode. |
-| `screenshot-shell.png` | The default `selene-shell --screenshot` capture. Re-render with `bash scripts/cli.sh capture`. |
-| `panel-launcher.png` | Launcher overlay open. |
-| `panel-notif.png` | Notification panel. |
-| `panel-walls.png` | Wallpaper picker. |
-| `panel-settings.png` | Settings panel. |
-| `panel-audio.png` | Audio quick settings. |
-| `panel-net.png` | Network quick settings. |
-| `panel-bt.png` | Bluetooth quick settings. |
+| `logo-dark.png` | Selene crescent, trimmed to content, on a transparent background. Used by the Bar and the README `<picture>` tag in light mode. |
+| `logo-white.png` | Same silhouette in white, used in dark mode. |
 
-To regenerate every panel:
+Screenshots live here too and are taken by hand:
 
 ```bash
-for p in launcher notif walls settings audio net bt; do
+QT_QPA_PLATFORM=offscreen build/selene-shell \
+    --screenshot assets/screenshot-shell.png --delay 4000 --size 1280x720
+
+for p in launcher dashboard overview powermenu notes todo walls settings audio net bt sidebar; do
   QT_QPA_PLATFORM=offscreen build/selene-shell \
       --screenshot "assets/panel-$p.png" --show $p --delay 4000 --size 1100x700
 done
 ```
+
+Add `--preset full-moon` (or any Tokens preset) and `--anim-profile bouncy`
+to any capture to showcase a theme.

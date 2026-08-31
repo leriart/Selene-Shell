@@ -1,51 +1,30 @@
-# Selene-Shell
+# Selene
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo-white.png" />
     <source media="(prefers-color-scheme: light)" srcset="assets/logo-dark.png" />
-    <img alt="Selene shell" src="assets/logo-dark.png" width="220" />
+    <img alt="Selene" src="assets/logo-dark.png" width="220" />
   </picture>
 </p>
 
 <p align="center">
-  <em>A QML shell for Hyprland. Translucent overlays, live theming, zero edits to your config.</em>
-</p>
-
-<p align="center">
-  <a href="#what-it-is">Overview</a> &middot;
-  <a href="#screens">Screens</a> &middot;
-  <a href="#install">Install</a> &middot;
-  <a href="#usage">Usage</a> &middot;
-  <a href="#surfaces">Surfaces</a> &middot;
-  <a href="#configuration">Configuration</a> &middot;
-  <a href="#internals">Internals</a> &middot;
-  <a href="#contributing">Contributing</a>
+  <strong>A QML shell for Hyprland, written in Rust.</strong><br />
+  The successor to NothingLess. Orbital, translucent, wallpaper-driven.
 </p>
 
 ---
 
-## What it is
+Selene is the desktop shell that replaces NothingLess. It runs on top of
+Hyprland without touching your compositor config: a Rust core speaks
+Hyprland IPC and exposes live state to a QML frontend through cxx-qt
+bindings. All chrome -- bar, launcher, dashboard, panels, wallpaper
+engine -- is QML you can reshape, scripted through a single Lua file.
 
-Selene is a Hyprland shell that lives on top of your compositor without
-touching its config. The Rust core consumes the Hyprland IPC stream and
-exposes live state to a QML frontend through cxx-qt `Q_PROPERTY` bindings;
-the visible chrome (bar, launcher, quick-settings, panels, wallpaper
-picker, notification daemon) is then plain QML, scripted in Lua.
-
-It fuses three inspirations:
-
-- **[Ambxst](https://github.com/Axenide/Ambxst)** -- the non-intrusive
-  installer philosophy and a single `selene` command surface that never
-  edits your Hyprland config.
-- **[Caelestia Shell](https://github.com/caelestia-dots/shell)** -- a
-  translucent, token-based overlay language with a live palette engine.
-- **[NothingLess](https://github.com/leriart/NothingLess)** -- the
-  Dynamic Island pattern, the wallpaper-driven theming, and every
-  lesson from the predecessor codebase.
-
-The name draws from Selene, the Greek titaness of the moon -- a nod to
-Lua ("moon" in Portuguese) riding on a foundation of Rust.
+The name comes from Selene, the Greek goddess of the moon. The visual
+language follows: a central moon with status satellites in orbit, lunar
+theme presets, and a wallpaper engine that re-tints the whole shell
+from your wallpaper.
 
 ---
 
@@ -55,171 +34,143 @@ Lua ("moon" in Portuguese) riding on a foundation of Rust.
 curl -sL https://github.com/leriart/selene-shell/raw/main/scripts/install.sh | sh
 ```
 
-The installer mirrors Ambxst's "lives in your home, never touches sudo"
-model:
+The installer detects the distro (Arch, Fedora, Debian/Ubuntu, NixOS),
+pulls build dependencies, clones into `~/.local/src/selene-shell`,
+builds in Release, symlinks `scripts/cli.sh` as `~/.local/bin/selene`,
+and stages `~/.local/share/selene/` for runtime state. Optionally run
+`selene install hyprland` to add a single marked `source =` line to
+your Hyprland config.
 
-1. Detects the distro (Arch, Fedora, Debian/Ubuntu, NixOS) and pulls the
-   build deps for the cxx-qt + CMake + Rust toolchain.
-2. Clones the repo into `~/.local/src/selene-shell` (or pulls if
-   present).
-3. Configures CMake and builds in Release.
-4. Symlinks `scripts/cli.sh` as `~/.local/bin/selene`.
-5. Stages `~/.local/share/selene/` for generated Hyprland config and
-   runtime state.
-6. Optionally runs `selene install hyprland` to add a single `source =`
-   line with markers; the rest of your config is left alone.
-
-Manual install is straightforward too:
+Manual install:
 
 ```bash
 git clone https://github.com/leriart/selene-shell
 cd selene-shell
-cargo generate-lockfile --manifest-path crates/selene-shell/Cargo.toml
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ./build/selene-shell
 ```
 
-### Prerequisites
-
-- A running Hyprland session
-- Qt 6.5+ (`qt6-base`, `qt6-declarative`, `qt6-quick`,
-  `qt6-quickcontrols2`, `qt6-multimedia`)
-- Rust toolchain (edition 2024+)
-- CMake 3.24+, a C++17 compiler (GCC or Clang), Ninja
-- ffmpeg, libqalculate (optional, for `=` and `:q` prefixes)
-- `playerctl` (media metadata), `cava` (audio visualizer),
-  `pactl`, `nmcli`, `bluetoothctl`, `loginctl` (panel backends)
-
-`selene doctor` runs an environment check and reports any missing
-binary; the installer also runs it before building.
+Prerequisites: Hyprland, Qt 6.5+ (`qt6-base`, `qt6-declarative`,
+`qt6-quick`, `qt6-quickcontrols2`, `qt6-multimedia`, `qt6-network`),
+Rust, CMake 3.24+, Ninja. Optional runtime tools: `playerctl`, `cava`,
+`pactl`, `nmcli`, `bluetoothctl`, `brightnessctl`, `wf-recorder`,
+`wlsunset`, `grim`/`slurp`. `selene doctor` checks the environment.
 
 ---
 
 ## Usage
 
-Inside a Hyprland session:
-
 ```bash
-selene
+selene                    # launch the shell
+selene run <panel>        # open a panel on the running instance
+selene reload             # hot-reload QML
+selene quit               # stop the shell
+selene doctor             # environment diagnostic
+selene lock               # lock the session
+selene suspend            # suspend the machine
+selene record [region]    # start/stop screen recording
+selene nightlight         # toggle the night light (wlsunset)
+selene dnd                # toggle do-not-disturb
+selene caffeine           # toggle idle inhibit
+selene profile <name>     # performance | balanced | power-saver
+selene brightness <0-100> # set the backlight
+selene screenshot [mode]  # screen | region | window
 ```
 
-That runs the compiled binary via the symlinked `cli.sh`. All commands:
-
-| Command                  | Effect                                          |
-|--------------------------|-------------------------------------------------|
-| `selene`                 | Launch the shell (alias of `run`).              |
-| `selene run`             | Launch the shell.                               |
-| `selene reload`          | `pkill -USR1 -x selene-shell`.                  |
-| `selene quit`            | `pkill -x selene-shell`.                        |
-| `selene update`          | `git pull` + rebuild + relink.                  |
-| `selene status`          | Print install paths and binary state.           |
-| `selene doctor`          | Environment diagnostic.                         |
-| `selene install hyprland`| Append a marked `source =` line; never edits the rest of the config. |
-| `selene remove hyprland` | Strip the markers and source line cleanly.      |
-
-Override paths with `SELENE_SRC`, `SELENE_BUILD`, `SELENE_SHARE`,
-`SELENE_BIN_DIR`, `HYPRLAND_CONFIG` when needed.
+`selene run` talks to the live instance over a local socket
+(`$XDG_RUNTIME_DIR/selene-shell.sock`) and falls back to launching the
+shell with the panel open when no instance is running. Recognised
+panels: `launcher`, `dashboard`, `overview`, `powermenu`, `binds`,
+`notes`, `todo`, `clipboard`, `notif`, `walls`, `settings`, `audio`,
+`net`, `bt`, `picker`, `island`, `metrics`, `weather`, `gamemode`,
+`focusmode`, `dnd`, `caffeine`, `nightlight`, `record`, `lock`,
+`suspend`.
 
 ### Keybinds
 
-Selene registers the following via `hyprctl` global shortcuts; rebind any
-of them in `~/.local/share/selene/hyprland.conf`:
-
-| Keybind           | Action                                       |
-|-------------------|----------------------------------------------|
-| `SUPER`           | Toggle the launcher.                          |
-| `SUPER + D`       | Toggle the dashboard / quick-settings.        |
-| `SUPER + L`       | Lock the session.                             |
-| `SUPER + ESC`     | Open the power menu.                          |
-| `Ctrl+Alt+Left`   | Previous wallpaper.                           |
-| `Ctrl+Alt+Right`  | Next wallpaper.                               |
-| `Escape`          | Close any open panel.                         |
+| Keybind            | Action                       |
+|--------------------|------------------------------|
+| `SUPER`            | Toggle the launcher          |
+| `SUPER + D`        | Toggle the dashboard         |
+| `SUPER + TAB`      | Toggle the overview          |
+| `SUPER + ESC`      | Open the power menu          |
+| `Ctrl + Alt + Left`| Previous wallpaper           |
+| `Ctrl + Alt + Right`| Next wallpaper              |
+| `Escape`           | Close the focused panel      |
 
 ---
 
 ## Surfaces
 
-The shell shows a small, wallpaper-first layout by default and exposes
-panels on demand. Everything reads/writes through a dedicated Rust
-QObject so the UI layer stays declarative.
+### Always visible
 
-### Always-visible
-
-- **Floating top bar** -- `logo | workspaces | active window title |
-  media title | status dots | clock | battery | power`. Status dots
-  reflect live audio / network / bluetooth state; the power button
-  opens a session menu (lock / suspend / logout / reboot / poweroff).
-  Wallpaper-derived accent applied via tokens; backdrop blur over the
-  wallpaper via Qt Quick `MultiEffect`.
-- **IslandPill** (bottom-right) -- a compact pill that morphs into a
-  card showing media, CPU%, RAM, battery, and a live `cava` audio
-  visualiser while music is playing. Hover-tap to expand; click to lock /
-  suspend / reboot / logout.
+- **Bar** -- floating pill at the top: logo, workspace dots, active
+  window title, media, weather, clock, power profile, battery. The
+  logo flips between dark and light variants based on the live surface
+  luminance.
+- **Moon island** (bottom-right) -- the orbital signature: a central
+  moon with four status satellites (media, battery, network, CPU) in
+  slow orbit. Clicking expands it into a card with media controls,
+  CPU/RAM, battery and weather. Notification pulses ripple outward
+  from the moon.
+- **Dock** (bottom-center) -- the eight most-launched apps, with
+  backdrop blur.
 
 ### On demand
 
-- **Launcher** (`SUPER`) -- Hax-style fuzzy search over apps and shell
-  actions. Prefix triggers:
-  - `@app` -- fuzzy app search
-  - `>action` -- shell actions (lock / suspend / restart etc.)
-  - `=expression` -- calculator (sanitised JS, supports `+ - * / ( ) % ^`)
-  - `?query` -- DuckDuckGo search via `Spawner.open_url` (http/https only)
-  - `:emoji` -- emoji picker, click-to-copy via `wl-copy` (xclip / xsel
-    fallback chain)
-- **Notification center** -- D-Bus daemon over `zbus` blocking
-  connection serving `org.freedesktop.Notifications` with the full
-  `Notify` / `CloseNotification` / `GetCapabilities` /
-  `GetServerInformation` surface, plus `NotificationClosed` and
-  `ActionInvoked` signals. FIFO history cap (default 200, configurable
-  via `apply_history_max`). Action buttons render and emit on click.
-- **Wallpaper picker** -- thumbnail grid of the configured wallpaper
-  directory. PNG/JPG/WebP via `Image`, GIF/APNG via `AnimatedImage`,
-  MP4/WebM/MKV/MOV via `MediaPlayer` + `VideoOutput`. Click-to-pick
-  drives the live Palette engine that re-tints the chrome.
-- **Settings panel** -- every scalar `Config` property editable through
-  `Config.set_value(key, val)`. `Save` writes the live state back to
-  `init.lua` so the scriptable surface and the GUI stay in sync.
-- **Quick Settings** -- three right-side panels:
-  - **Audio** (pactl) -- sink selector, volume slider, mute toggle,
-    +/- 5/15 % nudge
-  - **Network** (nmcli) -- wifi on/off, nearby SSIs with signal bars
-    and lock indicators, click-to-connect with optional password
-  - **Bluetooth** (bluetoothctl) -- power toggle, paired devices, click to
-    pair / connect / disconnect
-- **Sidebar** (left edge) -- Caelestia-style thin trigger strip that
-  slides open on hover to expose quick toggles (clipboard, picker,
-  launcher, wallpapers) plus a small cluster of status badges.
+- **Launcher** -- fuzzy app search ranked by usage, with prefixes:
+  `@` apps, `>` actions, `=` calculator, `?` web search, `:` emoji
+  picker, plus `timer 5m`, `stats`, `weather [city]`, `help`, `lock`.
+  Running timers surface in the launcher and can be cancelled there.
+- **Dashboard** -- four tabs: Controls (volume, brightness, Wi-Fi,
+  Bluetooth, power profile, game/focus mode, DND, caffeine, night
+  light, recording), Metrics (CPU/RAM/GPU/disk), Wallpapers, Weather.
+- **Overview** -- live workspace grid driven by Hyprland IPC.
+- **Notification center** -- D-Bus daemon implementing
+  `org.freedesktop.Notifications` with action buttons, DND and history.
+- **Wallpaper picker** -- thumbnail grid over your wallpaper directory.
+  Images, GIF/APNG and video wallpapers all render natively.
+- **Power menu** -- lock, log out, suspend, reboot, power off.
+- **Notes** -- quick notes persisted to
+  `~/.local/share/selene/notes.json`.
+- **Todo board** -- three-column kanban persisted to
+  `~/.local/share/selene/todo.json`.
+- **Keybinds** -- cheatsheet rendered from the `binds` list in
+  `init.lua`.
+- **Quick settings** -- Audio (pactl), Network (nmcli), Bluetooth
+  (bluetoothctl), each as a slide-over panel.
+- **Sidebar** (left edge) -- thin rail with quick toggles and status
+  badges.
+- **Lock screen** -- in-shell lock with PAM authentication.
 
-### Always-visible chrome details
+### System feedback
 
-- Wallpaper is sampled through `MultiEffect` so every chrome surface
-  reads like frosted glass over the user's desktop.
-- Logo is luminance-aware: the silhouette flips between `logo-white.png`
-  and `logo-dark.png` based on the live surface WCAG luminance, so it
-  stays visible on any palette.
-- Workspace dots are accent-tinted when active.
-- Click-to-pick wallpapers; click-to-launch apps; click-to-toggle any
-  quick setting; all backed by real subprocesses (`pactl`, `nmcli`,
-  `bluetoothctl`, `xdg-open`, `ffmpeg`).
-- The launcher's input is `forceActiveFocus`'d; the user can press
-  arrow keys to navigate results and Enter to launch.
+Volume, brightness, night light and recording changes flash a circular
+OSD popup in the centre of the screen. Every panel and toggle speaks
+to real subprocesses (`pactl`, `nmcli`, `bluetoothctl`, `brightnessctl`,
+`wlsunset`, `wf-recorder`, `grim`) through Rust backends.
 
 ---
 
-## Screens
+## Wallpaper engine
 
-The `assets/` folder is reserved for the canonical screenshot and
-the per-panel captures. The intended layout (subject to replacement):
-a banner for the floating shell + a 3x2 grid of the most representative
-panels. The `assets/README.md` documents the regen batch script.
+The wallpaper engine is native: Rust enumerates the directory, caches
+thumbnails, extracts a live palette from the current image, and hands
+rendering to Qt. Videos decode through hardware acceleration when
+available (`h264_qsv` / `h264_vaapi` / `h264_nvenc`), are downscaled
+into `~/.cache/selene/video-cache` for 4K sources, and pause decoding
+while the screen is locked or game mode is active.
+
+Drop your wallpapers into the `wallpapers/` folder of this repository,
+or set `SELENE_WALLPAPER_DIR` to any directory.
 
 ---
 
 ## Configuration
 
-Selene is configured through Lua scripts in `~/.config/selene/`. An
-example `init.lua`:
+One file: `~/.config/selene/init.lua`. It is hot-reloaded with inotify
+and round-trips through the Settings panel.
 
 ```lua
 return {
@@ -238,188 +189,85 @@ return {
         accent     = "#a78bfa",
         background = "#1a1b1e",
         surface    = "#2a2b2e",
-        -- when `follow_wallpaper = false`, the wallpaper-derived
-        -- palette no longer overrides theme_* on the chrome.
-        follow_wallpaper = true,
-        font = {
-            family = "Inter",
-            size   = 13,
-        },
+        preset     = "default",        -- new-moon | waxing-crescent
+                                       -- first-quarter | full-moon
+                                       -- sunset | midnight | monochrome
+        animation_profile = "m3",      -- m3 | subtle | bouncy | off
+        follow_wallpaper  = true,
     },
-    binds = {
-        ["SUPER"]       = "launcher",
-        ["SUPER + D"]   = "dashboard",
-        ["SUPER + L"]   = "lock",
-        ["SUPER + ESC"] = "power",
-    },
+    font = { family = "Inter", size = 13 },
+    binds = { "SUPER -> launcher", "SUPER + D -> dashboard" },
 }
 ```
 
-The `Config` QObject loads the file via `mlua 0.12`, exposes every
-field as `#[qproperty]`, and watches it with `notify` for live
-hot-reload via `notify` (inotify). Edits through the Settings panel
-round-trip: `Config.set_value("theme.accent", "#a78bfa")` mutates the
-in-memory state, `Config.save()` writes the entire table back to
-`init.lua`, and the watcher's debounce re-loads the file so the script
-and GUI never drift.
-
-Settings hot-keys:
-- `panel.height` (24..96 px)
-- `panel.position` (top / bottom)
-- `panel.transparent` (bool)
-- `launcher.width` (320..1280 px)
-- `launcher.max_results` (4..32)
-- `launcher.show_icons` (bool)
-- `theme.accent`, `theme.background`, `theme.surface`
-- `theme.follow_wallpaper` (default true; turn off for fully manual palette)
-- `font.family`, `font.size`
+Presets re-tint every token (background, surface, border, accent,
+text, halo) with an animated transition. The palette engine extracts
+colours from the wallpaper and pushes them into the same tokens; when
+`follow_wallpaper` is off or a non-default preset is active, the
+palette stays out of the way.
 
 ---
 
-## Internals
-
-### Project layout
-
-```
-selene-shell/
-├── Cargo.toml                workspace root
-├── CMakeLists.txt            links crates/selene-shell into the C++ executable
-├── src/
-│   └── main.cpp              QGuiApplication + QQmlApplicationEngine entry
-├── crates/
-│   └── selene-shell/         the Rust crate
-│       ├── Cargo.toml
-│       ├── build.rs          qml/ + asset registration
-│       ├── src/              11 QObject bridges
-│       └── qml/              13 QML components
-├── assets/                   logos (light + dark variants), screenshots
-├── scripts/
-│   ├── install.sh            one-shot installer
-│   └── cli.sh                `selene` command dispatcher
-├── docs/                     per-surface notes
-├── README.md
-├── TODO.md
-└── LICENSE
-```
-
-### Architecture
-
-```
-                            QML Layer
-   +-----------------------------------------------------+
-   |   Bar  Launcher  Notifications  WallpaperPicker  ...|
-   +---------------------+--------------------------------+
-                          |
-                          | QtQuick / QQmlApplicationEngine
-                          |
-   +---------------------+--------------------------------+
-   |                      Rust Backend                     |
-   |                                                       |
-   |   +--------------+  +--------------+  +------------+   |
-   |   |  hyprland-rs |  |  mlua (Lua)  |  | cxx-qt     |   |
-   |   |  IPC client  |  |  engine      |  | generated  |   |
-   |   |  + listener  |  |              |  | QObjects   |   |
-   |   +--------------+  +--------------+  +------------+   |
-   |                                                       |
-   |   Palette   Spawner   Config   Visualizer   ...      |
-   +-------------------------------------------------------+
-                          |
-                          | subprocesses (pactl, nmcli, ...)
-                          v
-```
-
-The Rust crate lives at `crates/selene-shell/` and produces a single
-`staticlib`. CMake links it into the `selene-shell` executable via
-`cxx-qt`'s CMake helpers. The QML files are co-located with the Rust
-sources so the build system has one place to look. Logos are bundled
-into the binary via `qrc` so the shell runs without a filesystem
-dependency on its assets.
-
-### Stack
-
-| Layer            | Technology              | Responsibility                                       |
-|------------------|-------------------------|------------------------------------------------------|
-| UI               | QML / QtQuick 6         | Panels, overlays, animations, input                  |
-| Build glue       | CMake + Corrosion       | Orchestrates Rust (cargo) and C++ (Ninja)            |
-| Bridge           | Rust (cxx-qt)           | Expose backend data to QML as properties and models  |
-| Compositor IPC   | hyprland-rs             | Push-based event listener + sync queries            |
-| Scripting        | mlua (Lua 5.4)          | User config, keybindings, rules, theming             |
-| Core             | Rust                    | Workspace tracking, event dispatch, resource mgmt    |
-
-### QObject backends
-
-| QObject    | Source                                                      |
-|------------|-------------------------------------------------------------|
-| Bridge     | `hyprland-rs` IPC + dedicated event listener thread         |
-| Island     | `/proc/stat`, `/sys/class/power_supply`, `date`, `playerctl` |
-| Spawner    | `.desktop` enumeration + `xdg-open` + `setsid --fork`     |
-| Notifier   | `zbus` blocking connection on `org.freedesktop.Notifications`|
-| Config     | `mlua` over `~/.config/selene/init.lua` + inotify watcher   |
-| Palette    | ImageReader + `ffmpeg` pipe for image / video wallpapers   |
-| Wallpaper  | Directory enumeration + image / GIF / video rendering      |
-| Audio      | `pactl` over the default sink + sinks list                 |
-| Network    | `nmcli` for wifi + connections                              |
-| Bluetooth  | `bluetoothctl` for devices + power                         |
-| Visualizer | `cava -p` subprocess pipe, ASCII frames @ ~15fps           |
-
-### Threading model
-
-- The Hyprland event listener and the CAVA reader live on dedicated
-  `std::thread`s and push updates onto the Qt main thread via
-  `cxx_qt::CxxQtThread::queue(move || { ... })`.
-- The D-Bus notification daemon runs a `zbus::blocking::Connection`
-  on its own thread; emits `NotificationClosed` / `ActionInvoked`
-  through the same queue.
-- The `Config` notifier watcher uses `notify` with a 250 ms debounce;
-  hot-reload triggers a `Config.reload()` on the Qt main thread.
-
-### Token system
-
-`Tokens.qml` is a `pragma Singleton` with Caelestia-style scales:
-`roundingScale`, `spacingScale`, `paddingScale`, `fontScale`,
-`animScale` (multipliers); plus `surfaceAlpha` (0.55), `layerAlpha`
-(0.92), `backdropBlur` (0.7), `hairlineAlpha` (0.08), `monoFamily`,
-`fontFamily`, `radiusXs/Sm/Md/Lg`, and `barHeight/MaxWidth/Padding/
-Spacing/WorkspaceSize/LogoSize/StatusSize/BatteryHeight/Width`.
-
-The Palette engine re-tints `bg`, `surface`, `accent`, `text` whenever
-the wallpaper changes (or when Config overrides them). Animations on
-`Behavior on color` give a smooth 600 ms transition.
-
-### Headless capture
+## Building from source
 
 ```bash
-selene-shell --screenshot assets/screenshot-shell.png \
-             --delay 4000 --size 1280x720
+cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
 
-Works under `QT_QPA_PLATFORM=offscreen` so docs / CI can regenerate
-panels without a live Hyprland session. `--show <panel>` opens a
-specific surface first (`launcher`, `notif`, `walls`, `settings`,
-`audio`, `net`, `bt`, `sidebar`). `--launcher-query "<text>"` pre-fills
-the launcher input.
+Headless smoke test (no Wayland session required):
+
+```bash
+QT_QPA_PLATFORM=offscreen build/selene-shell \
+    --screenshot /tmp/selene.png --delay 4000
+```
+
+`--show <panel>` opens a surface before capture, `--preset <name>` and
+`--anim-profile <name>` apply theme and animation profiles for the
+shot, and `--size WxH` sets the render size.
+
+---
+
+## Architecture
+
+```
+                          QML Layer
+ +-------------------------------------------------------+
+ | Bar  Launcher  Dashboard  Overview  Panels  LockScreen |
+ +-----------------------+--------------------------------+
+                         |
+                         | QtQuick / QQmlApplicationEngine
+                         |
+ +-----------------------+--------------------------------+
+ |                    Rust Backend (cxx-qt)                |
+ |                                                         |
+ | Hyprland IPC  Lua config  Wallpaper engine  Palette     |
+ | Spawner  Notifier  Audio  Network  Bluetooth  System    |
+ | Weather  Brightness  Power profile  Notes  Todo  ...    |
+ +---------------------------------------------------------+
+                         |
+                         | subprocesses
+                         v
+```
+
+The Rust crate builds a single `staticlib`; CMake links it into the
+`selene-shell` executable. QML files ship inside the binary through
+`qrc`, so the shell runs with no filesystem dependency on its assets.
+Blocking work (subprocess polling, D-Bus, video decoding) lives on
+dedicated threads and reports back to the Qt main thread through the
+cxx-qt queued bridge.
+
+The live IPC socket accepts one command per connection: `show <panel>`,
+`apply-preset <name>`, `animation-profile <name>`, `osd <kind> <value>`,
+`reload`, `quit`.
 
 ---
 
 ## Contributing
 
-Issues and pull requests are welcome. Before opening a PR, please read
-`AGENTS.md` for the project guide (file layout, build flow, do/don't
-of the cxx-qt bridge, how to add a new QObject). For larger changes
-(new modules, IPC backends, theming primitives) open an issue first
-so we can discuss the design.
-
-### Add a QObject
-
-1. Pick a Rust source filename -- `crates/selene-shell/src/<name>.rs`.
-2. Use the `#[cxx_qt::bridge]` macro with a `qobject` module.
-3. Add the module to `crates/selene-shell/src/lib.rs`.
-4. Add the file to `crates/selene-shell/build.rs` under `.files([...])`.
-5. Recompile. The QObject is now visible to QML as `Foo { id: foo }`
-   after `import io.github.selene.shell`.
-
-The full set of do's and don'ts (threading, signal handlers, naming
-collisions) is in `AGENTS.md`.
+Issues and pull requests are welcome. Read `AGENTS.md` first: it
+documents the build flow, how to add a QObject or a QML component,
+threading rules, and the do/don't list of the cxx-qt bridge.
 
 ---
 
@@ -427,20 +275,4 @@ collisions) is in `AGENTS.md`.
 
 Apache 2.0 -- see [LICENSE](LICENSE).
 
----
-
-## Inspiration
-
-- **[Ambxst](https://github.com/Axenide/Ambxst)** -- installer philosophy,
-  command surface, glyph-based interaction.
-- **[Caelestia Shell](https://github.com/caelestia-dots/shell)** --
-  lightweight philosophy, token-based theming, fluid overlay language.
-- **[NothingLess](https://github.com/leriart/NothingLess)** -- axctl
-  bridge, Dynamic Island, Ndot visual language, the entire predecessor
-  codebase.
-- **[Hax](https://github.com/fabiolopezperez-hue/ambxst-Hax)** --
-  spotlight / launcher with calculator and plugin system.
-- **[AwesomeWM](https://github.com/awesomeWM/awesome)** -- proven
-  Lua-driven window manager configuration model.
-- **[cava-bg](https://github.com/leriart/cava-bg)** -- the dominant-color
-  extraction algorithm reused in the Palette engine.
+Selene is the successor to [NothingLess](https://github.com/leriart/NothingLess).

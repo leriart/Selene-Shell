@@ -20,12 +20,27 @@ usage() {
 selene <command> [args]
 
 Commands:
-  run                 Launch the shell (default if no command is given).
+  run [panel]         Launch the shell (default if no command is given).
+                      With a running instance, opens/toggles <panel> live:
+                      launcher | dashboard | overview | powermenu | binds |
+                      clipboard | notif | walls | settings | audio | net | bt |
+                      picker | island | metrics | weather | gamemode |
+                      focusmode | dnd | caffeine | nightlight | record | lock
   reload              Reload the running shell instance.
   quit                Stop the running shell instance.
+  lock                Lock the session (via the running shell, else loginctl).
+  suspend             Suspend the system.
+  record [region]     Toggle screen recording (wf-recorder; default full
+                      screen, "region" selects an area with slurp).
+  nightlight          Toggle the night light (wlsunset).
+  dnd                 Toggle do-not-disturb.
+  caffeine            Toggle idle inhibit (stay awake).
   update              Pull, rebuild, and re-stage.
   status              Show install paths and binary state.
   doctor              Diagnose the environment Selene runs against.
+  profile <name>      Switch the power profile (powerprofilesctl set <name>).
+  brightness <0-100>  Set the backlight percentage (brightnessctl).
+  screenshot [mode]   Take a screenshot: screen (default) | region | window.
   install hyprland    Add the Selene source line to ~/.config/hypr/hyprland.conf.
   remove  hyprland    Remove the Selene source line.
 
@@ -36,17 +51,165 @@ Environment:
 EOF
 }
 
+# Panels / actions understood by Main.qml's applyScreenshotPanel().
+SELENE_PANELS="launcher|notif|walls|settings|audio|net|bt|sidebar|clipboard|picker|island|dashboard|overview|powermenu|binds|notes|todo|metrics|weather|gamemode|focusmode|dnd|caffeine|nightlight|record|record-screen|record-stop|lock|suspend"
+
+# Send a command to the running instance; returns non-zero when no
+# instance is listening so callers can fall back to direct execution.
+selene_send() {
+  "$SELENE_BIN" --send "$1" 2>/dev/null
+}
+
 cmd_run() {
+  local panel="${1:-}"
   if [[ ! -x "$SELENE_BIN" ]]; then
     echo "selene-shell not found at $SELENE_BIN" >&2
     echo "Run: selene update   (or curl|sh the installer again)" >&2
     exit 1
   fi
-  exec "$SELENE_BIN"
+  case "$panel" in
+    "")
+      exec "$SELENE_BIN" ;;
+    launcher|notif|walls|settings|audio|net|bt|sidebar|clipboard|picker|island|dashboard|overview|powermenu|binds|notes|todo|metrics|weather|gamemode|focusmode|dnd|caffeine|nightlight|record|record-screen|record-stop|lock|suspend)
+      # Live instance first; otherwise start the shell with the panel.
+      if selene_send "show $panel"; then
+        exit 0
+      fi
+      exec "$SELENE_BIN" "--show=$panel" ;;
+    *)
+      echo "unknown panel: $panel (expected one of: ${SELENE_PANELS//|/, })" >&2
+      exit 1
+      ;;
+  esac
+}
+
+cmd_lock() {
+  if selene_send "show lock"; then
+    exit 0
+  fi
+  loginctl lock-session
+}
+
+cmd_suspend() {
+  if selene_send "show suspend"; then
+    exit 0
+  fi
+  systemctl suspend
+}
+
+cmd_record() {
+  local mode="${1:-screen}"
+  case "$mode" in
+    screen)        selene_send "show record-screen" || cmd_record_fallback "" ;;
+    region)        selene_send "show record"        || cmd_record_fallback "region" ;;
+    stop)          selene_send "show record-stop"   || pkill -INT -x wf-recorder ;;
+    *)
+      echo "usage: selene record [screen|region|stop]" >&2
+      exit 1
+      ;;
+  esac
+}
+
+# Fallback when the shell isn't running: drive wf-recorder directly.
+cmd_record_fallback() {
+  local region="$1"
+  if ! command -v wf-recorder >/dev/null 2>&1; then
+    echo "wf-recorder not found (install wf-recorder)" >&2
+    exit 1
+  fi
+  if pgrep -x wf-recorder >/dev/null; then
+    pkill -INT -x wf-recorder
+    echo "recording saved"
+    exit 0
+  fi
+  local dir="$HOME/Videos/Recordings"
+  mkdir -p "$dir"
+  local out="$dir/recording-$(date +%Y%m%d-%H%M%S).mp4"
+  if [[ -n "$region" ]]; then
+    command -v slurp >/dev/null 2>&1 || { echo "slurp not found" >&2; exit 1; }
+    wf-recorder -g "$(slurp)" -f "$out" &
+  else
+    wf-recorder -f "$out" &
+  fi
+  echo "recording -> $out (run again or 'selene record stop' to stop)"
+}
+
+cmd_profile() {
+  local name="${1:-}"
+  if [[ -z "$name" ]]; then
+    echo "usage: selene profile <performance|balanced|power-saver>" >&2
+    exit 1
+  fi
+  if ! command -v powerprofilesctl >/dev/null 2>&1; then
+    echo "powerprofilesctl not found (install power-profiles-daemon)" >&2
+    exit 1
+  fi
+  powerprofilesctl set "$name"
+  echo "power profile -> $name"
+}
+
+cmd_brightness() {
+  local value="${1:-}"
+  if [[ ! "$value" =~ ^[0-9]+$ ]] || (( value > 100 )); then
+    echo "usage: selene brightness <0-100>" >&2
+    exit 1
+  fi
+  if ! command -v brightnessctl >/dev/null 2>&1; then
+    echo "brightnessctl not found (install brightnessctl)" >&2
+    exit 1
+  fi
+  brightnessctl set "${value}%" >/dev/null
+  echo "brightness -> ${value}%"
+}
+
+cmd_screenshot() {
+  local mode="${1:-screen}"
+  local dir="$HOME/Pictures/Screenshots"
+  local out="$dir/selene-$(date +%Y%m%d-%H%M%S).png"
+  if ! command -v grim >/dev/null 2>&1; then
+    echo "grim not found (install grim; region mode also needs slurp)" >&2
+    exit 1
+  fi
+  mkdir -p "$dir"
+  case "$mode" in
+    screen)
+      grim "$out"
+      ;;
+    region)
+      if ! command -v slurp >/dev/null 2>&1; then
+        echo "slurp not found (needed for region capture)" >&2
+        exit 1
+      fi
+      local geom
+      geom="$(slurp)" || { echo "selection cancelled" >&2; exit 1; }
+      grim -g "$geom" "$out"
+      ;;
+    window)
+      if ! command -v hyprctl >/dev/null 2>&1; then
+        echo "hyprctl not found (needed for window capture)" >&2
+        exit 1
+      fi
+      local geom
+      geom="$(hyprctl activewindow -j | python3 -c 'import json,sys; w=json.load(sys.stdin); print(f"{w[\"at\"][0]},{w[\"at\"][1]} {w[\"size\"][0]}x{w[\"size\"][1]}")')" \
+        || { echo "no active window" >&2; exit 1; }
+      grim -g "$geom" "$out"
+      ;;
+    *)
+      echo "usage: selene screenshot [screen|region|window]" >&2
+      exit 1
+      ;;
+  esac
+  echo "saved: $out"
+  command -v notify-send >/dev/null 2>&1 && notify-send "Screenshot" "$out" || true
 }
 
 cmd_reload() {
-  if pkill -USR1 -x selene-shell; then
+  # Prefer the live IPC socket; SIGUSR1 is handled in-process as a
+  # fallback (see main.cpp). Both paths reload QML without dropping
+  # the Wayland connection.
+  if selene_send "reload"; then
+    echo "reload sent"
+  elif pkill -USR1 -x selene-shell; then
     echo "reload signal sent"
   else
     echo "no running selene-shell instance" >&2
@@ -55,7 +218,9 @@ cmd_reload() {
 }
 
 cmd_quit() {
-  if pkill -x selene-shell; then
+  if selene_send "quit"; then
+    echo "selene-shell stopped"
+  elif pkill -x selene-shell; then
     echo "selene-shell stopped"
   else
     echo "no running selene-shell instance" >&2
@@ -84,7 +249,7 @@ cmd_doctor() {
   [[ -x $SELENE_BIN ]] && printf "$format_line" "" "($SELENE_BIN)" || { ok=1; printf "$format_line" "" "MISSING - run: selene update"; }
   printf "$format_line" "share" "${SELENE_SHARE}$([[ -d $SELENE_SHARE ]] && echo " (ready)" || echo " (missing; will be created on first run)")"
 
-  local bins=("qmake6" "ffmpeg" "playerctl" "busctl" "hyprctl" "cava" "nmcli" "bluetoothctl" "pactl")
+  local bins=("qmake6" "ffmpeg" "playerctl" "busctl" "hyprctl" "cava" "nmcli" "bluetoothctl" "pactl" "grim" "slurp" "wf-recorder" "wlsunset" "powerprofilesctl" "brightnessctl")
   for b in "${bins[@]}"; do
     local found
     if found="$(command -v "$b" 2>/dev/null)"; then
@@ -216,8 +381,8 @@ exec-once = $SELENE_BIN
 
 # Default appearance keybinds.
 \$mainMod = SUPER
-bind = \$mainMod, return, exec, $SELENE_BIN --reload
-bind = \$mainMod SHIFT, escape, exec, $SELENE_BIN --quit
+bind = \$mainMod SHIFT, R, exec, $SELENE_BIN --send reload
+bind = \$mainMod SHIFT, escape, exec, $SELENE_BIN --send quit
 
 # Layer rules for compositor-side blur.
 layerrule = blur, namespace:selene-shell
@@ -285,12 +450,23 @@ cmd="${1:-run}"
 shift || true
 
 case "$cmd" in
-  run|"")         cmd_run ;;
+  run|"")         cmd_run "${1:-}" ;;
   reload)         cmd_reload ;;
   quit)           cmd_quit ;;
+  lock)           cmd_lock ;;
+  suspend)        cmd_suspend ;;
+  record)         cmd_record "${1:-screen}" ;;
+  nightlight)     cmd_run nightlight ;;
+  dnd)            cmd_run dnd ;;
+  caffeine)       cmd_run caffeine ;;
+  notes)          cmd_run notes ;;
+  todo)           cmd_run todo ;;
   update)         cmd_update ;;
   status)         cmd_status ;;
   doctor)         cmd_doctor ;;
+  profile)        cmd_profile "${1:-}" ;;
+  brightness)     cmd_brightness "${1:-}" ;;
+  screenshot)     cmd_screenshot "${1:-screen}" ;;
   install)
     sub="${1:-}"; shift || true
     case "$sub" in

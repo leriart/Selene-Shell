@@ -54,7 +54,47 @@ ApplicationWindow {
         case "sidebar":   sidebar.open = true; break;
         case "clipboard": clipboardPanel.open(); break;
         case "picker":   colorPickerPanel.open(); break;
-        case "dashboard": islandWidget.cardExpanded = true; break;
+        case "island":    islandWidget.cardExpanded = true; break;
+        case "dashboard": dashboardPanel.open(); break;
+        case "overview":  overviewPanel.open(); break;
+        case "powermenu": powerMenu.open(); break;
+        case "binds":     keybindsPanel.open(); break;
+        case "notes":    notesPanel.open(); break;
+        case "todo":     todoPanel.open(); break;
+        case "metrics":   dashboardPanel.currentTab = 1; dashboardPanel.open(); break;
+        case "weather":   dashboardPanel.currentTab = 3; dashboardPanel.open(); break;
+        case "gamemode":  GameFocusMode.toggleGameMode(); break;
+        case "focusmode": GameFocusMode.toggleFocusMode(); break;
+        case "dnd":       notifierBackend.toggle_dnd(); break;
+        case "caffeine":  GameFocusMode.toggleCaffeine(); break;
+        case "nightlight": nightLightBackend.toggle(); break;
+        case "record":    screenshotBackend.record_region(); break;
+        case "record-screen": screenshotBackend.record_screen(); break;
+        case "record-stop": screenshotBackend.record_stop(); break;
+        case "lock":      lockBackend.lock(); break;
+        case "suspend":   islandBackend.suspend(); break;
+        }
+    }
+
+    // Multi-arg IPC commands the live socket understands. Each takes a
+    // single token following the verb.
+    function applyIpcCommand(line) {
+        const parts = line.trim().split(/\s+/);
+        const verb = parts[0];
+        const arg = parts.slice(1).join(" ");
+        switch (verb) {
+        case "apply-preset":
+            if (arg.length > 0) Tokens.applyPreset(arg);
+            break;
+        case "animation-profile":
+            if (arg.length > 0) Tokens.animationProfile = arg;
+            break;
+        case "osd":
+            // `osd volume 50`, `osd brightness 0.8`, ...
+            const sub = parts[1] || "";
+            const v = parseFloat(parts[2] || "0");
+            osd.flash(sub, isNaN(v) ? 0 : v);
+            break;
         }
     }
 
@@ -64,6 +104,7 @@ ApplicationWindow {
         id: wallpaper
         anchors.fill: parent
         wallpaper: wallpaperBackend
+        wallpaperEngine: wallpaperEngineBackend
         z: -1
     }
 
@@ -132,6 +173,50 @@ ApplicationWindow {
         Component.onCompleted: wallpaperBackend.refresh()
     }
 
+    WallpaperEngine {
+        id: wallpaperEngineBackend
+
+        Component.onCompleted: wallpaperEngineBackend.refresh()
+    }
+
+    Connections {
+        // Keep the engine's current path in sync with the gallery.
+        target: wallpaperBackend
+        function onCurrentPathChanged() {
+            if (wallpaperBackend.current_path.length > 0)
+                wallpaperEngineBackend.set_wallpaper(wallpaperBackend.current_path);
+        }
+    }
+
+    Connections {
+        // The engine reads paused state; tunnel the lock-screen signal
+        // through `pause_for` / `resume_for` so multiple reasons stack.
+        target: lockBackend
+        function onLockedChanged() {
+            if (lockBackend.locked)
+                wallpaperEngineBackend.pause_for("locked");
+            else
+                wallpaperEngineBackend.resume_for("locked");
+        }
+    }
+
+    Timer {
+        // One-shot: GameFocusMode wires its toggle to engine pause_for
+        // when it changes; but we also poll every second in case the
+        // singleton is replaced (e.g. after a reload).
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: {
+            if (typeof GameFocusMode === "undefined" || !wallpaperEngineBackend.video)
+                return;
+            if (GameFocusMode.gameModeActive || GameFocusMode.focusModeActive)
+                wallpaperEngineBackend.pause_for("game");
+            else
+                wallpaperEngineBackend.resume_for("game");
+        }
+    }
+
     Audio {
         id: audioBackend
 
@@ -179,11 +264,67 @@ ApplicationWindow {
         Component.onCompleted: bluetoothBackend.refresh()
     }
 
+    SystemResources {
+        id: resourcesBackend
+
+        Component.onCompleted: resourcesBackend.start_polling()
+    }
+
+    Weather {
+        id: weatherBackend
+
+        Component.onCompleted: {
+            if (configBackend.weather_enabled) {
+                if (configBackend.weather_location.length > 0)
+                    weatherBackend.apply_location(configBackend.weather_location);
+                weatherBackend.start_polling();
+            }
+        }
+    }
+
+    Brightness {
+        id: brightnessBackend
+
+        Component.onCompleted: brightnessBackend.refresh()
+    }
+
+    PowerProfile {
+        id: powerProfileBackend
+
+        Component.onCompleted: powerProfileBackend.refresh()
+    }
+
+    Screenshot {
+        id: screenshotBackend
+
+        Component.onCompleted: screenshotBackend.refresh()
+    }
+
+    NightLight {
+        id: nightLightBackend
+
+        Component.onCompleted: nightLightBackend.refresh()
+
+
+    }
+
+    Connections {
+        // Re-target the weather backend when the configured location
+        // changes from init.lua / settings.
+        target: configBackend
+        function onWeather_locationChanged() {
+            weatherBackend.apply_location(configBackend.weather_location);
+        }
+    }
+
     Timer {
         interval: 5000
         running: true
         repeat: true
-        onTriggered: paletteBackend.refresh()
+        // Skip the live wallpaper-colour extraction when the user has
+        // picked an explicit theme preset; their colours are the
+        // source of truth until they switch back to "default".
+        onTriggered: if (Tokens.themePreset === "default") paletteBackend.refresh()
     }
 
     Timer {
@@ -205,10 +346,12 @@ ApplicationWindow {
     Connections {
         target: paletteBackend
         // Disable the palette->Tokens wiring when the user has explicitly
-        // opted out (Config.palette_follow_wallpaper == false). The
-        // Config-driven connections below always apply, so the manual
-        // theme_* values take over in that mode.
-        enabled: configBackend === null || configBackend.palette_follow_wallpaper
+        // opted out (Config.palette_follow_wallpaper == false) OR has
+        // selected a non-default theme preset -- in either case the
+        // preset / manual values win and the wallpaper-derived colours
+        // would clobber them.
+        enabled: (configBackend === null || configBackend.palette_follow_wallpaper)
+                 && Tokens.themePreset === "default"
         function onAccentChanged() {
             Tokens.accent = paletteBackend.accent;
         }
@@ -229,8 +372,8 @@ ApplicationWindow {
         // External palette (cava-bg IPC). Accepts JSON push from
         // outside, merges into Tokens when live.
         target: ipcPaletteBackend
-        enabled: configBackend === null
-                 || configBackend.palette_follow_wallpaper
+        enabled: (configBackend === null || configBackend.palette_follow_wallpaper)
+                 && Tokens.themePreset === "default"
         function onAccentChanged() {
             Tokens.accent = ipcPaletteBackend.accent;
         }
@@ -278,7 +421,22 @@ ApplicationWindow {
                 Tokens.fontFamily = configBackend.font_family;
         }
         function onTheme_accentChanged() {
-            if (configBackend.theme_accent && configBackend.theme_accent.length > 0)
+        if (configBackend.theme_preset && configBackend.theme_preset.length > 0)
+            Tokens.applyPreset(configBackend.theme_preset);
+        else if (configBackend.theme_accent && configBackend.theme_accent.length > 0)
+            Tokens.accent = configBackend.theme_accent;
+        if (configBackend.theme_background && configBackend.theme_background.length > 0)
+            Tokens.bg = configBackend.theme_background;
+        if (configBackend.theme_surface && configBackend.theme_surface.length > 0)
+            Tokens.surface = configBackend.theme_surface;
+        if (configBackend.animation_profile && configBackend.animation_profile.length > 0)
+            Tokens.animationProfile = configBackend.animation_profile;
+        // CLI overrides (--preset, --anim-profile) win over the config
+        // default so headless screenshot runs can showcase any preset.
+        if (typeof __selenePreset !== "undefined" && __selenePreset.length > 0)
+            Tokens.applyPreset(__selenePreset);
+        if (typeof __seleneAnimProfile !== "undefined" && __seleneAnimProfile.length > 0)
+            Tokens.animationProfile = __seleneAnimProfile;
                 Tokens.accent = configBackend.theme_accent;
         }
         function onTheme_backgroundChanged() {
@@ -289,9 +447,22 @@ ApplicationWindow {
             if (configBackend.theme_surface && configBackend.theme_surface.length > 0)
                 Tokens.surface = configBackend.theme_surface;
         }
+        function onTheme_presetChanged() {
+            if (configBackend.theme_preset && configBackend.theme_preset.length > 0)
+                Tokens.applyPreset(configBackend.theme_preset);
+        }
+        function onAnimation_profileChanged() {
+            if (configBackend.animation_profile && configBackend.animation_profile.length > 0)
+                Tokens.animationProfile = configBackend.animation_profile;
+        }
     }
 
     Component.onCompleted: {
+        // Wire the game / focus mode singleton to its backends.
+        GameFocusMode.state = stateBackend;
+        GameFocusMode.notifier = notifierBackend;
+        GameFocusMode.config = configBackend;
+        GameFocusMode.spawner = spawner;
         // Seed theme tokens from Config first so a user who has set
         // theme_* in init.lua gets their colors immediately rather than
         // waiting for the first palette refresh.
@@ -372,6 +543,8 @@ ApplicationWindow {
         network: networkBackend
         bluetooth: bluetoothBackend
         audio: audioBackend
+        weather: weatherBackend
+        powerProfile: powerProfileBackend
         backdropSource: wallpaper
     }
 
@@ -386,8 +559,10 @@ ApplicationWindow {
         network: networkBackend
         audio: audioBackend
         state: stateBackend
+        resources: resourcesBackend
+        weather: weatherBackend
         cardExpanded: typeof __seleneScreenshotPanel !== "undefined"
-                      && __seleneScreenshotPanel === "dashboard"
+                      && __seleneScreenshotPanel === "island"
     }
 
     Dock {
@@ -409,6 +584,12 @@ ApplicationWindow {
         wallpaperPicker: wallpaperPicker
         clipboard: clipboardPanel
         picker: colorPickerPanel
+        dashboard: dashboardPanel
+        overview: overviewPanel
+        notes: notesPanel
+        todo: todoPanel
+        powerMenu: powerMenu
+        screenshot: screenshotBackend
         open: typeof __seleneScreenshotPanel !== "undefined"
               && __seleneScreenshotPanel === "sidebar"
     }
@@ -418,6 +599,10 @@ ApplicationWindow {
         anchors.fill: parent
         z: 1000
         spawner: spawner
+        notifier: notifierBackend
+        resources: resourcesBackend
+        weather: weatherBackend
+        island: islandBackend
         Keys.onEscapePressed: launcher.close()
     }
 
@@ -426,7 +611,18 @@ ApplicationWindow {
         anchors.fill: parent
         focus: true
         Keys.onPressed: function(event) {
-            if (event.key === Qt.Key_Super_L || event.key === Qt.Key_Super_R) {
+            if ((event.modifiers & Qt.MetaModifier) && event.key === Qt.Key_D) {
+                dashboardPanel.toggle();
+                event.accepted = true;
+            } else if ((event.modifiers & Qt.MetaModifier)
+                       && event.key === Qt.Key_Escape) {
+                powerMenu.toggle();
+                event.accepted = true;
+            } else if ((event.modifiers & Qt.MetaModifier)
+                       && (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)) {
+                overviewPanel.toggle();
+                event.accepted = true;
+            } else if (event.key === Qt.Key_Super_L || event.key === Qt.Key_Super_R) {
                 launcher.toggle();
                 event.accepted = true;
             } else if (event.modifiers === (Qt.ControlModifier | Qt.AltModifier)) {
@@ -504,11 +700,122 @@ ApplicationWindow {
         Keys.onEscapePressed: colorPickerPanel.close()
     }
 
+    Dashboard {
+        id: dashboardPanel
+        anchors.fill: parent
+        z: 1850
+        audio: audioBackend
+        network: networkBackend
+        bluetooth: bluetoothBackend
+        brightness: brightnessBackend
+        powerProfile: powerProfileBackend
+        resources: resourcesBackend
+        weather: weatherBackend
+        wallpaper: wallpaperBackend
+        config: configBackend
+        notifier: notifierBackend
+        nightLight: nightLightBackend
+        screenshot: screenshotBackend
+        Keys.onEscapePressed: dashboardPanel.close()
+    }
+
+    Overview {
+        id: overviewPanel
+        anchors.fill: parent
+        z: 1900
+        bridge: bridge
+        config: configBackend
+        Keys.onEscapePressed: overviewPanel.close()
+    }
+
+    PowerMenu {
+        id: powerMenu
+        anchors.fill: parent
+        z: 1950
+        island: islandBackend
+        lock: lockBackend
+        notifier: notifierBackend
+    }
+
+    KeybindsPanel {
+        id: keybindsPanel
+        anchors.fill: parent
+        z: 1955
+        config: configBackend
+    }
+
+
+    Notes {
+        id: notesBackend
+
+        Component.onCompleted: notesBackend.refresh()
+    }
+
+
+    TodoBoard {
+        id: todoBackend
+
+        Component.onCompleted: todoBackend.refresh()
+    }
+
+
+    NotesPanel {
+        id: notesPanel
+        anchors.fill: parent
+        z: 1970
+        notes: notesBackend
+    }
+
+
+    TodoPanel {
+        id: todoPanel
+        anchors.fill: parent
+        z: 1975
+        board: todoBackend
+    }
+
     LockScreen {
         id: lockScreen
         anchors.fill: parent
         z: 2000
         lock: lockBackend
+    }
+
+
+
+
+
+
+
+    OsdPopup {
+        id: osd
+        anchors.fill: parent
+        z: 5000
+    }
+
+    Connections {
+        target: audioBackend
+        function onVolume_percentChanged() {
+            if (osd) osd.flash("volume", audioBackend.volume_percent);
+        }
+    }
+    Connections {
+        target: brightnessBackend
+        function onBrightnessChanged() {
+            if (osd) osd.flash("brightness", brightnessBackend.brightness);
+        }
+    }
+    Connections {
+        target: nightLightBackend
+        function onActiveChanged() {
+            if (osd) osd.flash("nightlight", nightLightBackend.active ? 1 : 0);
+        }
+    }
+    Connections {
+        target: screenshotBackend
+        function onRecordingChanged() {
+            if (osd) osd.flash("record", screenshotBackend.recording ? 1 : 0);
+        }
     }
 
     ScreenCorners {
@@ -518,4 +825,6 @@ ApplicationWindow {
         cornerSize: Tokens.radiusXl + 8
         cornerColor: Tokens.bg
     }
+
+
 }

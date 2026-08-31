@@ -14,7 +14,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CXXQT_QTCOMPONENTS Core Gui Qml Quick Multimedia QuickControls2 QuickTemplates2)
+set(CXXQT_QTCOMPONENTS Core Gui Qml Quick Multimedia QuickControls2 QuickTemplates2 Network)
 
 find_package(Qt6 COMPONENTS ${CXXQT_QTCOMPONENTS} REQUIRED)
 set(Qt "Qt6")
@@ -43,7 +43,7 @@ cxx_qt_import_qml_module(selene_shell_qml_module
 )
 
 add_executable(selene-shell src/main.cpp)
-target_link_libraries(selene-shell PRIVATE selene_shell_qml_module)
+target_link_libraries(selene-shell PRIVATE selene_shell_qml_module Qt6::Network)
 
 # mlua embeds Lua via pkg-config; propagate that link to the C++ executable
 # so the staticlib's unresolved Lua symbols resolve at link time.

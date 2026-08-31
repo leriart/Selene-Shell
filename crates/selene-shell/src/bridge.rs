@@ -31,6 +31,8 @@ pub mod qobject {
         #[qproperty(i32, active_workspace_id)]
         #[qproperty(QString, active_workspace_name)]
         #[qproperty(i32, workspace_count)]
+        // JSON [{id, name, windows, active}] for the Overview grid.
+        #[qproperty(QString, workspaces_json)]
         #[qproperty(QString, active_window_class)]
         #[qproperty(QString, active_window_title)]
         #[qproperty(QString, hyprland_status)]
@@ -48,6 +50,9 @@ pub mod qobject {
 
         #[qinvokable]
         fn start_listener(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn focus_workspace(self: Pin<&mut Self>, id: i32);
     }
 
     impl cxx_qt::Threading for Bridge {}
@@ -61,6 +66,7 @@ pub struct BridgeRust {
     active_workspace_id: i32,
     active_workspace_name: QString,
     workspace_count: i32,
+    workspaces_json: QString,
     active_window_class: QString,
     active_window_title: QString,
     hyprland_status: QString,
@@ -90,13 +96,34 @@ impl qobject::Bridge {
             Ok(ws) => {
                 this.as_mut().set_connected(true);
                 this.as_mut().set_hyprland_status(QString::from("ok"));
-                this.as_mut().set_workspace_count(ws.to_vec().len() as i32);
+                let mut list = ws.to_vec();
+                list.sort_by_key(|w| w.id);
+                this.as_mut().set_workspace_count(list.len() as i32);
+                // Overview grid data: id, name, window count, active flag.
+                let active_id = active.as_ref().map(|w| w.id).unwrap_or(-1);
+                let entries: Vec<serde_json::Value> = list
+                    .iter()
+                    .map(|w| {
+                        serde_json::json!({
+                            "id": w.id,
+                            "name": w.name,
+                            "windows": w.windows,
+                            "active": w.id == active_id,
+                        })
+                    })
+                    .collect();
+                this.as_mut().set_workspaces_json(QString::from(
+                    serde_json::to_string(&entries)
+                        .unwrap_or_else(|_| "[]".to_string())
+                        .as_str(),
+                ));
             }
             Err(err) => {
                 this.as_mut().set_connected(false);
                 this.as_mut()
                     .set_hyprland_status(QString::from(format!("workspaces: {err}")));
                 this.as_mut().set_workspace_count(0);
+                this.as_mut().set_workspaces_json(QString::from("[]"));
                 this.as_mut().set_active_workspace_id(0);
                 this.as_mut().set_active_workspace_name(QString::from(""));
                 this.as_mut().set_active_window_class(QString::from(""));
@@ -214,5 +241,19 @@ impl qobject::Bridge {
                 }
             })
             .expect("selene: failed to spawn event listener thread");
+    }
+
+    pub fn focus_workspace(self: Pin<&mut Self>, id: i32) {
+        use hyprland::dispatch::{Dispatch, DispatchType, WorkspaceIdentifierWithSpecial};
+        let mut this = self;
+        match Dispatch::call(DispatchType::Workspace(
+            WorkspaceIdentifierWithSpecial::Id(id),
+        )) {
+            Ok(()) => this.as_mut().refresh(),
+            Err(err) => {
+                this.as_mut()
+                    .set_hyprland_status(QString::from(format!("workspace {id}: {err}")));
+            }
+        }
     }
 }

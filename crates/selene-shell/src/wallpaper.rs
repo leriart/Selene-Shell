@@ -10,7 +10,6 @@ use core::pin::Pin;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use image::imageops::FilterType;
-use image::ImageReader;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};

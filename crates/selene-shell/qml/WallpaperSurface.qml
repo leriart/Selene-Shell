@@ -3,75 +3,104 @@ import QtQuick.Effects
 import QtMultimedia
 
 
+// Native wallpaper engine surface (port of NothingLess's wallpaper + 
+// visualizer concept, adapted for cxx-qt/Qt). Two stacked layers
+// (layerA / layerB) crossfade between previous and current wallpaper so
+// the GPU isn't asked to decode two sources simultaneously. The
+// `WallpaperEngine` QObject owns hardware-accelerated decode, an
+// on-disk downscale cache, and a pause mask that suppresses video
+// decoding while the screen is locked or game mode is active.
 Item {
     id: root
 
-    property var wallpaper: null
+    // Backend references, injected by Main.qml.
+    property var wallpaper: null       // gallery + current path
+    property var wallpaperEngine: null // decode / cache / pause
 
     anchors.fill: parent
-
-    // Persist current file. We only re-render when it changes so the QML
-    // engine does not continuously decode video frames in offscreen test.
-    property string previousSource: ""
 
     function fileUrl(path) {
         return path && path.length > 0 ? "file://" + path : "";
     }
 
-    // Crossfade to mask frame swaps.
+    // ─── Engine → effective path resolver ───────────────────────────────
+    // For videos the engine writes a downscaled cache copy; for static
+    // images we hand the original straight to Image.
+    readonly property string _resolvedPath: {
+        if (!wallpaperEngine || !wallpaper)
+            return "";
+        if (wallpaper.current_kind === "video")
+            return wallpaperEngine.effective_path && wallpaperEngine.effective_path.length > 0
+                ? wallpaperEngine.effective_path
+                : wallpaper.current_path;
+        return wallpaper.current_path;
+    }
+
+    readonly property string _resolvedKind: wallpaper
+        ? wallpaper.current_kind : ""
+
+    // The engine pauses decode on lock/game mode. We mirror that on
+    // the MediaPlayer so the compositor stops wasting GPU cycles.
+    readonly property bool _paused:
+        wallpaperEngine && wallpaperEngine.video
+            ? wallpaperEngine.paused
+            : false
+
+    // ─── Two-layer crossfade ─────────────────────────────────────────────
+    // Each layer holds one frame of wallpaper history. On a wallpaper
+    // change the previous image stays visible while the next fades in,
+    // and the QQuickImageProvider keeps the prior decoded pixmap in the
+    // Qt cache so the back layer isn't reloaded from disk.
     Item {
+        id: stack
         anchors.fill: parent
 
+        // Layer A — current (front).
         Rectangle {
             id: layerA
             anchors.fill: parent
             color: "black"
+            visible: opacity > 0.001
 
-            // Image for static content (jpg/png/webp/etc)
+            // Static images.
             Image {
+                id: imgA
                 anchors.fill: parent
-                visible: wallpaper !== null
-                       && wallpaper.current_kind === "image"
-                       && wallpaper.current_path !== ""
-                source: visible ? root.fileUrl(wallpaper.current_path) : ""
+                visible: root._resolvedKind === "image"
+                         && root._resolvedPath.length > 0
+                source: visible ? root.fileUrl(root._resolvedPath) : ""
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 smooth: true
                 cache: true
                 mipmap: true
-
-                Behavior on opacity {
-                    NumberAnimation { duration: 600; easing.type: Easing.OutCubic }
-                }
-                opacity: 0.95
+                opacity: 1.0
             }
 
-            // AnimatedImage for GIF / APNG
+            // Animated (gif/apng).
             AnimatedImage {
+                id: animA
                 anchors.fill: parent
-                visible: wallpaper !== null
-                       && wallpaper.current_kind === "animated"
-                       && wallpaper.current_path !== ""
-                source: visible ? root.fileUrl(wallpaper.current_path) : ""
+                visible: root._resolvedKind === "animated"
+                         && root._resolvedPath.length > 0
+                source: visible ? root.fileUrl(root._resolvedPath) : ""
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 smooth: true
                 cache: false
-
-                opacity: 1.0
             }
 
-            // VideoOutput for mp4/webm/mkv/mov/avi
+            // Video (mp4/webm/mkv/...) — engine owned.
             Item {
+                id: videoA
                 anchors.fill: parent
-                visible: wallpaper !== null
-                       && wallpaper.current_kind === "video"
-                       && wallpaper.current_path !== ""
+                visible: root._resolvedKind === "video"
+                         && root._resolvedPath.length > 0
 
                 MediaPlayer {
-                    id: videoPlayer
-                    source: parent.visible ? root.fileUrl(wallpaper.current_path) : ""
-                    videoOutput: videoOut
+                    id: videoPlayerA
+                    source: parent.visible ? root.fileUrl(root._resolvedPath) : ""
+                    videoOutput: videoOutA
                     loops: MediaPlayer.Infinite
                     playbackRate: 1.0
                     audioOutput: null
@@ -81,29 +110,145 @@ Item {
                 }
 
                 VideoOutput {
-                    id: videoOut
+                    id: videoOutA
                     anchors.fill: parent
                     fillMode: VideoOutput.PreserveAspectCrop
                 }
             }
+
+            Behavior on opacity {
+                enabled: Tokens.animationsEnabled
+                NumberAnimation {
+                    duration: Tokens.animDuration("standard", "medium")
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Tokens.animEasing("emphasized")
+                }
+            }
         }
 
-        // Vignette overlay to push focus to foreground chrome. Stops the
-        // wallpaper from competing with the bar/launcher/island.
+        // Layer B — previous frame, holds the prior wallpaper so the
+        // front layer can crossfade over it.
         Rectangle {
+            id: layerB
             anchors.fill: parent
-            color: Qt.rgba(0, 0, 0, 0.30)
+            color: "black"
+            visible: opacity > 0.001
+            opacity: 0.0
+
+            Image {
+                anchors.fill: parent
+                source: layerB.source.length > 0 ? "file://" + layerB.source : ""
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                smooth: true
+                cache: true
+                mipmap: true
+                visible: layerB.kind === "image" || layerB.kind === "animated"
+            }
+            AnimatedImage {
+                anchors.fill: parent
+                source: layerB.source.length > 0 ? "file://" + layerB.source : ""
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                smooth: true
+                cache: false
+                visible: layerB.kind === "animated"
+            }
+            VideoOutput {
+                id: videoOutB
+                anchors.fill: parent
+                fillMode: VideoOutput.PreserveAspectCrop
+                visible: layerB.kind === "video" && layerB.source.length > 0
+            }
+
+            property string source: ""
+            property string kind: ""
         }
     }
 
-    // Re-tint the whole panel area in response to palette changes. The
-    // wallpaper itself stays intact; only the dark overlay is tinted.
-    Item {
-        anchors.fill: parent
-        Connections {
-            target: wallpaper
-            function onCurrentKindChanged() { root.previousSource = ""; }
-            function onCurrentPathChanged() { root.previousSource = ""; }
+    // ─── Engine pause wiring ─────────────────────────────────────────────
+    // WallpaperEngine owns a paused flag + paused_reason string. The
+    // MediaPlayer reacts to _paused; for static images it has no
+    // effect (still cached), for videos it stops decode entirely.
+    Connections {
+        target: wallpaperEngine
+        function onPausedChanged() {
+            if (!wallpaperEngine || !wallpaperEngine.video)
+                return;
+            if (videoPlayerA.source.toString().length === 0)
+                return;
+            if (wallpaperEngine.paused)
+                videoPlayerA.pause();
+            else
+                videoPlayerA.play();
         }
+        function onEffectivePathChanged() {
+            if (root._resolvedKind !== "video") return;
+            const src = root.fileUrl(root._resolvedPath);
+            if (videoPlayerA.source.toString() !== src)
+                videoPlayerA.source = src;
+            if (!wallpaperEngine.paused)
+                videoPlayerA.play();
+        }
+    }
+
+    // ─── Path change → crossfade ─────────────────────────────────────────
+    // On every wallpaper swap we move the front-layer's content into
+    // the back layer (snapshot) and load the new source on the front.
+    // Image / AnimatedImage cache keep the prior decoded pixmap hot so
+    // the back layer is cheap to draw.
+    property string _previousPath: ""
+    property string _previousKind: ""
+
+    function _swapLayers() {
+        if (_resolvedPath === _previousPath) return;
+        // Hold the prior frame on layer B.
+        layerB.source = _previousPath;
+        layerB.kind = _previousKind;
+        layerB.opacity = 1.0;
+        layerA.opacity = 0.0;
+        // Fade in the front layer over the back layer.
+        layerA.opacity = 1.0;
+        // Tear down the back layer once the crossfade completes.
+        crossfadeTimer.restart();
+        _previousPath = _resolvedPath;
+        _previousKind = _resolvedKind;
+    }
+
+    Connections {
+        target: wallpaper
+        function onCurrentPathChanged() { root._swapLayers(); }
+        function onCurrentKindChanged() { root._swapLayers(); }
+    }
+
+    Connections {
+        target: wallpaperEngine
+        function onEffectivePathChanged() { root._swapLayers(); }
+    }
+
+    Timer {
+        id: crossfadeTimer
+        interval: Tokens.animDuration("standard", "medium")
+        repeat: false
+        onTriggered: layerB.opacity = 0.0
+    }
+
+    Component.onCompleted: {
+        _previousPath = _resolvedPath;
+        _previousKind = _resolvedKind;
+        layerA.opacity = 1.0;
+        if (root._resolvedKind === "video" && wallpaperEngine
+            && !wallpaperEngine.paused) {
+            videoPlayerA.play();
+        }
+    }
+
+    // ─── Vignette overlay ────────────────────────────────────────────────
+    // Tones down the wallpaper so foreground chrome reads cleanly.
+    // Kept outside the crossfade so the dark layer is always present.
+    Rectangle {
+        anchors.fill: parent
+        color: Qt.rgba(0, 0, 0, 0.30)
+        z: 1
     }
 }

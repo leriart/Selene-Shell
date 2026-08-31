@@ -24,6 +24,22 @@ Rectangle {
     property var network: null
     property var bluetooth: null
     property var audio: null
+    property var weather: null
+    property var powerProfile: null
+
+    // Compact WWO weather-code -> glyph mapping for the bar widget.
+    function weatherGlyph(code, isDay) {
+        const c = parseInt(code);
+        if (c === 113) return isDay ? "\u2600" : "\u263D";          // clear
+        if (c === 116) return "\u26C5";                             // partly cloudy
+        if (c === 119 || c === 122) return "\u2601";                // cloudy
+        if (c === 143 || c === 248 || c === 260) return "\u2592";   // fog
+        if (c >= 200 && c < 230) return "\u26A1";                   // thunder
+        if (c === 227 || c === 230 || (c >= 320 && c <= 338) || c === 350
+            || (c >= 368 && c <= 395)) return "\u2744";             // snow
+        if (c >= 176) return "\u2614";                              // rain-ish
+        return "\u2600";
+    }
 
     // Floating pill geometry -- anchored to top by the parent layout.
     implicitWidth: Math.min(Tokens.barMaxWidth, parent ? parent.width - 80 : Tokens.barMaxWidth)
@@ -42,6 +58,8 @@ Rectangle {
         saturation: Tokens.backdropSaturation
         opacity: Tokens.layerAlpha
     }
+
+
 
     // -- Left: logo + workspaces ------------------------------------
     RowLayout {
@@ -141,9 +159,13 @@ Rectangle {
     Label {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        anchors.leftMargin: Tokens.barPadding
-        anchors.rightMargin: Tokens.barPadding
-        width: Math.min(parent.width - 480, implicitWidth)
+        // Keep the centered title clear of both side clusters, with a
+        // small gutter so it never collides with the media label.
+        readonly property real freeSpan: parent.width
+            - 2 * Math.max(leftCluster.width, rightCluster.width)
+            - 2 * (Tokens.barPadding + Tokens.barSpacing)
+        width: Math.max(0, Math.min(freeSpan, implicitWidth))
+        visible: width > 24
         horizontalAlignment: Text.AlignHCenter
         text: {
             if (!bridge) return "selene";
@@ -208,6 +230,21 @@ Rectangle {
 
         BarSeparator {}
 
+        // Weather mini-widget -- glyph + temperature, next to the clock.
+        Label {
+            visible: bar.weather && bar.weather.available
+            text: bar.weather && bar.weather.available
+                  ? bar.weatherGlyph(bar.weather.weather_code, bar.weather.is_day)
+                    + " " + Math.round(bar.weather.temp) + "\u00B0"
+                  : ""
+            color: Tokens.text
+            font.family: Tokens.monoFamily
+            font.pixelSize: Tokens.fontSm
+            Layout.alignment: Qt.AlignVCenter
+        }
+
+        BarSeparator { visible: bar.weather && bar.weather.available }
+
         // Clock
         Label {
             text: island ? island.time_hhmm : "--:--"
@@ -215,6 +252,48 @@ Rectangle {
             font.family: Tokens.monoFamily
             font.pixelSize: Tokens.fontSm
             font.weight: Font.DemiBold
+            Layout.alignment: Qt.AlignVCenter
+        }
+
+        // Power profile indicator -- colored dot, click to cycle.
+        Rectangle {
+            visible: bar.powerProfile && bar.powerProfile.available
+            Layout.preferredWidth: Tokens.barStatusSize
+            Layout.preferredHeight: Tokens.barStatusSize
+            Layout.alignment: Qt.AlignVCenter
+            radius: width / 2
+            color: {
+                const p = bar.powerProfile ? String(bar.powerProfile.current_profile) : "";
+                if (p === "performance") return Tokens.danger;
+                if (p === "power-saver") return Tokens.success;
+                return Tokens.accent;
+            }
+            Behavior on color { ColorAnimation { duration: Tokens.duration } }
+
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -4
+                cursorShape: Qt.PointingHandCursor
+                onClicked: if (bar.powerProfile) bar.powerProfile.cycle()
+            }
+
+            ToolTip.visible: profileHover.containsMouse
+            ToolTip.text: bar.powerProfile ? String(bar.powerProfile.current_profile) : ""
+            MouseArea {
+                id: profileHover
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+            }
+        }
+
+        // Game / focus mode indicator.
+        Label {
+            visible: GameFocusMode.gameModeActive || GameFocusMode.focusModeActive
+            text: GameFocusMode.gameModeActive ? "\u25B6" : "\u25CE"
+            color: GameFocusMode.gameModeActive ? Tokens.danger : Tokens.accent
+            font.family: Tokens.fontFamily
+            font.pixelSize: Tokens.fontSm
             Layout.alignment: Qt.AlignVCenter
         }
 

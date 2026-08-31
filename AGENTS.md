@@ -15,15 +15,18 @@ selene-shell/
 ├── Cargo.toml                workspace root
 ├── CMakeLists.txt            links crates/selene-shell into the C++ executable
 ├── src/main.cpp              QGuiApplication + QQmlApplicationEngine entry
+│                             (+ QLocalServer IPC: show/reload/quit, --send client)
 ├── crates/selene-shell/
 │   ├── Cargo.toml            the only workspace member today
 │   ├── build.rs              registers QML files + assets into the qrc
-│   ├── src/                  11 QObject bridges (see "Adding a QObject")
-│   └── qml/                  11 QML components (Tokens, Bar, ...)
+│   ├── src/                  23 QObject bridges (see "Adding a QObject")
+│   └── qml/                  33 QML components (Tokens, Bar, ...)
 ├── assets/
-│   ├── logo-dark.png         bundled into the qrc, no runtime filesystem dep
+│   ├── logo-dark.png         trimmed to content, bundled into the qrc
 │   ├── logo-white.png
 │   └── screenshot-shell.png   captured by `selene-shell --screenshot`
+├── wallpapers/               user wallpapers (images + videos); empty by
+│                             default, picked up by the wallpaper engine
 ├── scripts/
 │   ├── install.sh            one-shot curl|sh installer
 │   └── cli.sh                `selene` command dispatcher
@@ -216,4 +219,37 @@ gate; `cargo clippy` is not run in CI yet.
 | State (snapshot/restore) | `crates/selene-shell/src/state.rs` |
 | Lock screen | `crates/selene-shell/src/lock.rs` + `qml/LockScreen.qml` |
 | cava-bg IPC | `crates/selene-shell/src/ipc.rs` |
-| Tokens (shared design system) | `crates/selene-shell/qml/Tokens.qml` |
+| Night light | `crates/selene-shell/src/night_light.rs` (wlsunset) |
+| Power menu | `crates/selene-shell/qml/PowerMenu.qml` (SUPER+ESC) |
+| Keybind cheatsheet | `crates/selene-shell/qml/KeybindsPanel.qml` (reads `binds` from init.lua) |
+| Screen recording | `crates/selene-shell/src/screenshot.rs` (wf-recorder, `record_*` invokables) |
+| Wallpaper engine | `crates/selene-shell/src/wallpaper_engine.rs` (hw video decode, downscale cache, pause mask) |
+| Notes | `crates/selene-shell/src/notes.rs` + `qml/NotesPanel.qml` |
+| Todo board | `crates/selene-shell/src/todo.rs` + `qml/TodoPanel.qml` |
+| OSD popup | `crates/selene-shell/qml/OsdPopup.qml` (volume/brightness/record flash) |
+| Orbital primitives | `crates/selene-shell/qml/Orbit.qml` + `Moon.qml` + `MoonPulse.qml` |
+| Hax-style launcher | `crates/selene-shell/qml/Launcher.qml` (timers, stats, weather, help) |
+| Tokens (shared design system) | `crates/selene-shell/qml/Tokens.qml` (theme presets, animation profiles) |
+
+## Live IPC
+
+The shell owns a QLocalServer at `$XDG_RUNTIME_DIR/selene-shell.sock`.
+One line per connection:
+
+- `show <panel>` -- runs `Main.qml`'s `applyScreenshotPanel(<panel>)`
+  (launcher, dashboard, overview, powermenu, binds, notes, todo, dnd,
+  caffeine, nightlight, record, lock, suspend, ...).
+- `apply-preset <name>` -- applies a Tokens theme preset (new-moon,
+  waxing-crescent, first-quarter, full-moon, sunset, midnight,
+  monochrome, default).
+- `animation-profile <name>` -- switches the animation profile
+  (m3 | subtle | bouncy | off).
+- `osd <kind> <value>` -- flashes the OSD popup.
+- `reload` -- deletes the root objects, clears the component cache and
+  re-loads `Main.qml`. `SIGUSR1` flips the same path (cli.sh fallback).
+- `quit` -- clean `QCoreApplication::quit()`.
+
+Clients should use `build/selene-shell --send "<cmd>"` (client mode in
+`main.cpp`); `scripts/cli.sh` wraps it in `selene_send()` and every
+`selene run <panel>`/lock/suspend/record command tries IPC first and
+falls back to direct execution when no instance is alive.
