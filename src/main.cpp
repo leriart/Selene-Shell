@@ -18,21 +18,33 @@ int main(int argc, char* argv[])
     // before doing anything else. Without Hyprland running we cannot
     // draw, so exit cleanly with an actionable message instead of
     // crashing in QGuiApplication's ctor or hanging at exec().
+    //
+    // WAYLAND_DISPLAY can be either:
+    //   - a plain socket name ("wayland-0", "wayland-1") -- in
+    //     which case libwayland resolves it via XDG_RUNTIME_DIR
+    //   - an absolute path ("/run/user/1000/wayland-1")
+    // We mirror that by trying both interpretations.
     const auto probeWayland = []() -> bool {
-        if (qEnvironmentVariableIsSet("WAYLAND_DISPLAY")) {
-            const QString wd = qEnvironmentVariable("WAYLAND_DISPLAY");
-            QFile f(wd);
-            return f.exists();
-        }
-        const QString home = QDir::homePath();
-        for (const QString& sock : {"wayland-0", "wayland-1"}) {
-            for (const QString& dir : {
-                    QStringLiteral("/run/user/%1").arg(getuid()),
-                    home + QStringLiteral("/.cache"),
-                    QStringLiteral("/tmp")}) {
-                QFile f(dir + QStringLiteral("/") + sock);
-                if (f.exists()) {
-                    qputenv("WAYLAND_DISPLAY", sock.toUtf8());
+        const QStringList candidates = {
+            qEnvironmentVariable("WAYLAND_DISPLAY"),
+            qEnvironmentVariable("WAYLAND_DISPLAY").split('/').last(),
+        };
+        const QString xdg = QStringLiteral("/run/user/%1").arg(getuid());
+        const QStringList bases = {
+            xdg,
+            QDir::homePath() + QStringLiteral("/.cache"),
+            QStringLiteral("/tmp"),
+            QStringLiteral("."),
+        };
+        for (const QString& base : bases) {
+            for (const QString& wd : candidates) {
+                if (wd.isEmpty()) continue;
+                QFileInfo fi(QDir(base).filePath(wd));
+                if (fi.exists() && fi.isReadable()) {
+                    if (fi.isAbsolute() || base == xdg) {
+                        qputenv("WAYLAND_DISPLAY",
+                                fi.absoluteFilePath().toUtf8());
+                    }
                     return true;
                 }
             }
