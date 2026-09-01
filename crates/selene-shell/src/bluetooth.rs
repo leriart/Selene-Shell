@@ -108,11 +108,10 @@ fn parse_show() -> (bool, bool, bool, String, String) {
             discoverable = v.trim().eq_ignore_ascii_case("yes");
         } else if let Some(v) = line.strip_prefix("Name: ") {
             name = v.trim().to_string();
-        } else if let Some(v) = line.strip_prefix("Alias: ") {
-            if name.is_empty() {
+        } else if let Some(v) = line.strip_prefix("Alias: ")
+            && name.is_empty() {
                 name = v.trim().to_string();
             }
-        }
         // The MAC is implied by the controller name; we parse it from the
         // first non-empty "Controller ..." line instead.
     }

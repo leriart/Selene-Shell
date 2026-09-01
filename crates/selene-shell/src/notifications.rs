@@ -208,12 +208,11 @@ fn ensure_storage_dir(state: &mut Store) {
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| std::path::PathBuf::from("."));
         let _ = std::fs::create_dir_all(&dir);
-        if let Ok(text) = std::fs::read_to_string(&path) {
-            if let Ok(items) = serde_json::from_str::<Vec<Notification>>(&text) {
+        if let Ok(text) = std::fs::read_to_string(&path)
+            && let Ok(items) = serde_json::from_str::<Vec<Notification>>(&text) {
                 state.next_id = items.iter().map(|n| n.id + 1).max().unwrap_or(1);
                 state.entries = items;
             }
-        }
         state.storage_dir = Some(dir);
     }
 }
@@ -511,11 +510,10 @@ impl qobject::Notifier {
             Ok(s) => s,
             Err(_) => return,
         };
-        if let Some(n) = store.entries.iter_mut().find(|n| n.id == id as u32) {
-            if !n.read {
+        if let Some(n) = store.entries.iter_mut().find(|n| n.id == id as u32)
+            && !n.read {
                 n.read = true;
             }
-        }
         let count = unread_count(&store);
         let entries = entries_json(&store);
         let status = status_json(&store);

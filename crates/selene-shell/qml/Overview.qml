@@ -19,6 +19,7 @@ Rectangle {
     // Parsed copies of bridge state.
     property var workspaces: []
     property var windows: []
+    property var thumbnails: ({})
 
     visible: false
     color: Qt.rgba(0, 0, 0, 0.55)
@@ -26,6 +27,8 @@ Rectangle {
     function toggle() { visible ? close() : open(); }
     function open() {
         if (bridge && bridge.refresh) bridge.refresh();
+        if (bridge && bridge.capture_workspace_thumbnails)
+            bridge.capture_workspace_thumbnails();
         reload();
         visible = true;
         forceActiveFocus();
@@ -33,7 +36,7 @@ Rectangle {
     function close() { visible = false; }
 
     function reload() {
-        if (!bridge) { workspaces = []; windows = []; return; }
+        if (!bridge) { workspaces = []; windows = []; thumbnails = {}; return; }
         try {
             const ws = JSON.parse(bridge.workspaces_json || "[]");
             workspaces = Array.isArray(ws) ? ws : [];
@@ -46,6 +49,17 @@ Rectangle {
         } catch (e) {
             windows = [];
         }
+        try {
+            const t = JSON.parse(bridge.workspace_thumbnails_json || "{}");
+            thumbnails = (t && typeof t === "object") ? t : {};
+        } catch (e) {
+            thumbnails = {};
+        }
+    }
+
+    function thumbnailFor(wsId) {
+        const key = String(wsId);
+        return (thumbnails && thumbnails[key]) ? thumbnails[key] : "";
     }
 
     // Windows on a given workspace id, capped at 6 per card.
@@ -64,6 +78,7 @@ Rectangle {
         target: root.bridge
         function onWorkspaces_jsonChanged() { root.reload(); }
         function onWindows_jsonChanged() { root.reload(); }
+        function onWorkspace_thumbnails_jsonChanged() { root.reload(); }
     }
 
     MouseArea {
@@ -142,6 +157,20 @@ Rectangle {
 
                         Behavior on color {
                             ColorAnimation { duration: Tokens.durationFast }
+                        }
+
+                        // Live wallpaper thumbnail of this workspace.
+                        // Drawn as the card background so the overview
+                        // shows what each workspace looks like.
+                        Image {
+                            anchors.fill: parent
+                            source: root.thumbnailFor(wsCard.modelData.id)
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            smooth: true
+                            cache: true
+                            visible: status === Image.Ready
+                            opacity: 0.32
                         }
 
                         // Workspace label + window tiles.

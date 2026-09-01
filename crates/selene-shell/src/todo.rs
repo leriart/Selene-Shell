@@ -78,10 +78,7 @@ fn todo_path() -> PathBuf {
 }
 
 fn load(path: &PathBuf) -> Vec<Card> {
-    let raw = match fs::read_to_string(path) {
-        Ok(s) => s,
-        Err(_) => String::new(),
-    };
+    let raw = fs::read_to_string(path).unwrap_or_default();
     serde_json::from_str(&raw).unwrap_or_default()
 }
 

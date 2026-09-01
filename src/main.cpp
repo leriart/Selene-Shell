@@ -4,13 +4,51 @@
 #include <QtQuick/QQuickWindow>
 #include <QtCore/QTimer>
 #include <QtCore/QCommandLineParser>
+#include <QtCore/QFile>
+#include <QtCore/QDir>
 #include <QtCore/QStandardPaths>
 #include <QtNetwork/QLocalServer>
 #include <QtNetwork/QLocalSocket>
 #include <csignal>
+#include <unistd.h>
 
 int main(int argc, char* argv[])
 {
+    // Pre-flight: ensure we can actually talk to a Wayland compositor
+    // before doing anything else. Without Hyprland running we cannot
+    // draw, so exit cleanly with an actionable message instead of
+    // crashing in QGuiApplication's ctor or hanging at exec().
+    const auto probeWayland = []() -> bool {
+        if (qEnvironmentVariableIsSet("WAYLAND_DISPLAY")) {
+            const QString wd = qEnvironmentVariable("WAYLAND_DISPLAY");
+            QFile f(wd);
+            return f.exists();
+        }
+        const QString home = QDir::homePath();
+        for (const QString& sock : {"wayland-0", "wayland-1"}) {
+            for (const QString& dir : {
+                    QStringLiteral("/run/user/%1").arg(getuid()),
+                    home + QStringLiteral("/.cache"),
+                    QStringLiteral("/tmp")}) {
+                QFile f(dir + QStringLiteral("/") + sock);
+                if (f.exists()) {
+                    qputenv("WAYLAND_DISPLAY", sock.toUtf8());
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    if (!probeWayland()) {
+        fprintf(stderr,
+            "selene-shell: no Wayland compositor reachable.\n"
+            "  - Is Hyprland running?\n"
+            "  - Is WAYLAND_DISPLAY set to a valid socket?\n"
+            "  - Run `hyprland` (or `Hyprland (Wayland)` from your\n"
+            "    display manager) and try again.\n");
+        return 1;
+    }
+
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("selene-shell"));
     QGuiApplication::setDesktopFileName(QStringLiteral("selene-shell"));

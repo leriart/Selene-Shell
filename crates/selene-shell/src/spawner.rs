@@ -268,7 +268,7 @@ fn default_search_paths_borrowed() -> Vec<PathBuf> {
 
 fn stats_path() -> PathBuf {
     let home = std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h))
+        .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/"));
     home.join(".local/share/selene/launcher-stats.json")
 }
@@ -376,7 +376,7 @@ fn enumerate_apps(roots: &[PathBuf]) -> Vec<DesktopEntry> {
         });
     }
 
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out.sort_by_key(|a| a.name.to_lowercase());
     out
 }
 
@@ -388,11 +388,10 @@ fn walk_desktop_dir<F: FnMut(DesktopEntry)>(dir: &Path, cb: &mut F) {
         let path = entry.path();
         if path.is_dir() {
             walk_desktop_dir(&path, cb);
-        } else if path.extension().and_then(|s| s.to_str()) == Some("desktop") {
-            if let Some(parsed) = parse_desktop(&path) {
+        } else if path.extension().and_then(|s| s.to_str()) == Some("desktop")
+            && let Some(parsed) = parse_desktop(&path) {
                 cb(parsed);
             }
-        }
     }
 }
 
@@ -437,11 +436,10 @@ fn parse_desktop(path: &Path) -> Option<DesktopEntry> {
 
     // TryExec preflight: skip the entry when the named binary isn't resolvable
     // on PATH (the .desktop spec says launchers MUST NOT show the entry).
-    if let Some(bin) = try_exec {
-        if !binary_on_path(&bin) {
+    if let Some(bin) = try_exec
+        && !binary_on_path(&bin) {
             return None;
         }
-    }
 
     Some(DesktopEntry {
         name: name?,

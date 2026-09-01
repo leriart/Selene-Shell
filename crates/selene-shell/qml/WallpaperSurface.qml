@@ -215,15 +215,35 @@ Item {
 
     function _swapLayers() {
         if (_resolvedPath === _previousPath) return;
-        // Record the new previous BEFORE mutating the front layer so
-        // layerB's bindings re-evaluate to the old source, then fade.
+        // Re-bind layerB to the OLD source BEFORE swapping
+        // _previousPath so the back layer's Image is the prior pixmap.
         const oldPath = _previousPath;
         const oldKind = _previousKind;
         _previousPath = _resolvedPath;
         _previousKind = _resolvedKind;
-        layerB.opacity = 1.0;
-        layerA.opacity = 0.0;
-        crossfadeTimer.restart();
+        // Run the crossfade in a Sequence so Qt batches the opacity
+        // changes into a single animation pass; setting both to their
+        // targets in the same tick used to skip the fade entirely.
+        crossfadeAnim.stop();
+        crossfadeAnim.start();
+    }
+
+    // Explicit crossfade animation: fade out the front layer over
+    // the now-bound back layer, then fade both back in once the new
+    // front pixmap is Ready (handled by imgA.onStatusChanged).
+    SequentialAnimation {
+        id: crossfadeAnim
+        NumberAnimation {
+            target: layerA; property: "opacity"
+            to: 0.0; duration: Tokens.animDuration("standard", "medium") / 2
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            target: layerA; property: "opacity"
+            to: 1.0; duration: Tokens.animDuration("standard", "medium") / 2
+            easing.type: Easing.InCubic
+        }
+        onRunningChanged: if (!running && layerA.opacity < 0.5) layerA.opacity = 1.0
     }
 
     Connections {
@@ -238,13 +258,13 @@ Item {
     }
 
     Timer {
-        id: crossfadeTimer
-        interval: Tokens.animDuration("standard", "medium")
+        id: crossfadeFallbackTimer
+        // Fallback for animated/video: the front layer is "ready"
+        // immediately when the source resolves. Static images
+        // crossfade via imgA.onStatusChanged === Ready.
+        interval: Tokens.animDuration("standard", "medium") * 1.5
         repeat: false
         onTriggered: {
-            // Animated/video crossfade fallback: the front layer is
-            // considered "ready" when the source resolved; static
-            // images already fade in via imgA.onStatusChanged.
             layerB.opacity = 0.0;
             layerA.opacity = 1.0;
         }

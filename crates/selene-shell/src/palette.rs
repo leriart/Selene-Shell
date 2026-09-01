@@ -84,7 +84,7 @@ fn default_source_path() -> PathBuf {
         return PathBuf::from(p);
     }
     let home = std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h))
+        .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/"));
     let candidates = [
         home.join(".local/share/selene/wallpaper.png"),
@@ -141,7 +141,7 @@ fn classify_is_video(path: &Path) -> bool {
 }
 
 fn bucket_pixels_from_rgb24(data: &[u8], count: usize) -> Option<Vec<DominantColor>> {
-    if data.len() % 3 != 0 {
+    if !data.len().is_multiple_of(3) {
         return None;
     }
     let mut buckets: HashMap<(u8, u8, u8), u32> = HashMap::new();
@@ -197,11 +197,10 @@ fn extract_dominant(path: &Path, count: usize) -> Option<Vec<DominantColor>> {
         let offset = probe_video_duration_secs(path)
             .map(|d| (d * 0.5).max(0.5))
             .unwrap_or(0.0);
-        if let Some(data) = extract_video_frame(path, offset) {
-            if let Some(dom) = bucket_pixels_from_rgb24(&data, count) {
+        if let Some(data) = extract_video_frame(path, offset)
+            && let Some(dom) = bucket_pixels_from_rgb24(&data, count) {
                 return Some(dom);
             }
-        }
         // Fall through to static-image extraction in case the file is
         // actually a still misnamed as video.
     }
@@ -429,12 +428,11 @@ impl qobject::Palette {
     }
 
     pub fn stop_streaming(self: Pin<&mut Self>) {
-        if let Ok(mut guard) = STREAMING_CHILD.lock() {
-            if let Some(mut child) = guard.take() {
+        if let Ok(mut guard) = STREAMING_CHILD.lock()
+            && let Some(mut child) = guard.take() {
                 let _ = child.kill();
                 let _ = child.wait();
             }
-        }
         let mut this = self;
         this.as_mut().set_streaming(false);
         this.as_mut().set_last_error(QString::from("stopped"));

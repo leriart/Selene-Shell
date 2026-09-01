@@ -78,7 +78,7 @@ struct Entry {
 
 fn thumb_dir() -> PathBuf {
     let home = std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h))
+        .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/tmp"));
     home.join(".cache/selene/wallpaper-thumbs")
 }
@@ -144,8 +144,8 @@ fn walk(dir: &Path, out: &mut Vec<Entry>) {
         let path = entry.path();
         if path.is_dir() {
             walk(&path, out);
-        } else if let Some(kind) = classify(&path) {
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        } else if let Some(kind) = classify(&path)
+            && let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                 out.push(Entry {
                     path: path.to_string_lossy().to_string(),
                     name: name.to_string(),
@@ -153,7 +153,6 @@ fn walk(dir: &Path, out: &mut Vec<Entry>) {
                     thumbnail: String::new(),
                 });
             }
-        }
     }
 }
 
@@ -162,7 +161,7 @@ fn default_dir() -> PathBuf {
         return PathBuf::from(p);
     }
     let home = std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h))
+        .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/"));
     let candidates = [
         home.join(".local/share/selene/wallpapers"),
@@ -192,7 +191,7 @@ impl qobject::Wallpaper {
 
         let mut entries: Vec<Entry> = Vec::new();
         walk(&dir, &mut entries);
-        entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        entries.sort_by_key(|a| a.name.to_lowercase());
 
         let first_kind = entries.first().map(|e| e.kind.clone()).unwrap_or_default();
         let first_path = entries.first().map(|e| e.path.clone()).unwrap_or_default();

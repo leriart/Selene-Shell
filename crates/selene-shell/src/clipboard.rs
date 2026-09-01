@@ -100,8 +100,8 @@ fn parse_entries(raw: &str) -> Vec<Entry> {
     let mut entries: Vec<Entry> = Vec::new();
     let mut current: Option<Entry> = None;
     for line in raw.lines() {
-        if let Some((id_part, content)) = line.split_once('\t') {
-            if let Ok(id) = id_part.parse::<i64>() {
+        if let Some((id_part, content)) = line.split_once('\t')
+            && let Ok(id) = id_part.parse::<i64>() {
                 if let Some(prev) = current.take() {
                     entries.push(prev);
                 }
@@ -117,7 +117,6 @@ fn parse_entries(raw: &str) -> Vec<Entry> {
                 });
                 continue;
             }
-        }
         if let Some(ref mut e) = current {
             if !e.full.is_empty() {
                 e.full.push('\n');

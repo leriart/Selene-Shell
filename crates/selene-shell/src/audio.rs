@@ -75,11 +75,10 @@ fn default_sink_name() -> String {
         .args(["get-default-sink"])
         .output()
         .ok();
-    if let Some(o) = out {
-        if o.status.success() {
+    if let Some(o) = out
+        && o.status.success() {
             return String::from_utf8_lossy(&o.stdout).trim().to_string();
         }
-    }
     String::new()
 }
 

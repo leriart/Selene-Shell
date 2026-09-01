@@ -139,12 +139,12 @@ impl Default for Settings {
             launcher_width: 640,
             launcher_max_results: 8,
             launcher_show_icons: true,
-            theme_accent: "#a78bfa".to_string(),
-            theme_background: "#1a1b1e".to_string(),
-            theme_surface: "#2a2b2e".to_string(),
-            theme_preset: "default".to_string(),
+            theme_accent: "#e74c3c".to_string(),
+            theme_background: "#0a0a0a".to_string(),
+            theme_surface: "#111111".to_string(),
+            theme_preset: "new-moon".to_string(),
             animation_profile: "m3".to_string(),
-            palette_follow_wallpaper: true,
+            palette_follow_wallpaper: false,
             font_family: "Inter".to_string(),
             font_size: 13,
             dashboard_enabled: true,
@@ -217,12 +217,12 @@ fn default_path() -> PathBuf {
         return PathBuf::from(p);
     }
     let home = std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h))
+        .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/"));
     home.join(".config").join("selene").join("init.lua")
 }
 
-fn lookup<'a>(table: &'a mlua::Table, key: &str) -> Option<mlua::Value> {
+fn lookup(table: &mlua::Table, key: &str) -> Option<mlua::Value> {
     table.get::<mlua::Value>(key).ok()
 }
 
@@ -276,11 +276,10 @@ fn string_list_field(table: &mlua::Table, key: &str, default: &[&str]) -> Vec<St
     if let Some(t) = table_field(table, key) {
         let mut out = Vec::new();
         for pair in t.pairs::<mlua::Value, mlua::Value>() {
-            if let Ok((_, val)) = pair {
-                if let mlua::Value::String(s) = val {
+            if let Ok((_, val)) = pair
+                && let mlua::Value::String(s) = val {
                     out.push(s.to_string_lossy().to_string());
                 }
-            }
         }
         if !out.is_empty() {
             return out;
@@ -613,14 +612,13 @@ impl qobject::Config {
         } else {
             PathBuf::from(raw_path)
         };
-        if let Some(parent) = path.parent() {
-            if std::fs::create_dir_all(parent).is_err() {
+        if let Some(parent) = path.parent()
+            && std::fs::create_dir_all(parent).is_err() {
                 let mut this = self;
                 this.as_mut()
                     .set_status(QString::from("save: cannot create config dir"));
                 return false;
             }
-        }
         let body = serialize_to_lua(&settings);
         match std::fs::write(&path, body) {
             Ok(()) => {
@@ -750,15 +748,14 @@ fn watch_config(path: PathBuf, qt: cxx_qt::CxxQtThread<qobject::Config>) {
     let (tx, rx) = mpsc::channel::<()>();
 
     let Ok(mut watcher) = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-        if let Ok(event) = res {
-            if event
+        if let Ok(event) = res
+            && event
                 .paths
                 .iter()
                 .any(|p| p.file_name() == Some(&file_name))
             {
                 let _ = tx.send(());
             }
-        }
     }) else {
         let _ = qt.queue(|mut c| {
             c.as_mut().set_status(QString::from("watcher: cannot create notifier"));

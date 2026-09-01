@@ -102,8 +102,8 @@ fn parse_pacman(out: &str, source: &'static str) -> Vec<Hit> {
     let mut lines = out.lines().peekable();
     while let Some(name_line) = lines.next() {
         let trimmed = name_line.trim();
-        if let Some((_repo, rest)) = trimmed.split_once('/') {
-            if let Some((name_v, _)) = rest.split_once(' ') {
+        if let Some((_repo, rest)) = trimmed.split_once('/')
+            && let Some((name_v, _)) = rest.split_once(' ') {
                 let mut parts = name_v.splitn(2, ' ');
                 let name = parts.next().unwrap_or("").to_string();
                 let version = parts.next().unwrap_or("").to_string();
@@ -114,7 +114,6 @@ fn parse_pacman(out: &str, source: &'static str) -> Vec<Hit> {
                     hits.push(Hit { name, source, description, version });
                 }
             }
-        }
     }
     hits
 }
@@ -135,17 +134,16 @@ fn parse_flatpak(out: &str) -> Vec<Hit> {
                 description: String::new(),
                 version: String::new(),
             });
-        } else if let Some(rest) = t.strip_prefix("Description\t") {
-            if let Some(c) = current.as_mut() {
+        } else if let Some(rest) = t.strip_prefix("Description\t")
+            && let Some(c) = current.as_mut() {
                 c.description = rest.trim().to_string();
             }
-        }
     }
     if let Some(c) = current { hits.push(c); }
     hits
 }
 
-fn run_search(query: &str, source: &'static str, prog: &str,
+fn run_search(_query: &str, source: &'static str, prog: &str,
               args: Vec<&str>) -> Vec<Hit> {
     let out = match Command::new(prog).args(&args).output() {
         Ok(o) if o.status.success() =>

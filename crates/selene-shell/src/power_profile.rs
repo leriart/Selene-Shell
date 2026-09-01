@@ -63,11 +63,10 @@ fn list_profiles() -> Vec<String> {
     let mut names = Vec::new();
     for line in text.lines() {
         let stripped = line.trim().trim_start_matches('*').trim();
-        if let Some(name) = stripped.strip_suffix(':') {
-            if !name.is_empty() && !name.contains(' ') {
+        if let Some(name) = stripped.strip_suffix(':')
+            && !name.is_empty() && !name.contains(' ') {
                 names.push(name.to_string());
             }
-        }
     }
     names
 }

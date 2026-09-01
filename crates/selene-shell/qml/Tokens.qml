@@ -143,19 +143,25 @@ QtObject {
         }
     }
 
-    // -- Theme colours (live-tunable by the palette engine) ------------
-    property color bg:          "#0e0f12"
-    property color surface:     "#16181c"
-    property color surfaceAlt:  "#1f2128"
-    property color border:      "#2a2c33"
-    property color borderStrong: "#3a3d46"
-    property color accent:      "#a78bfa"
-    property color accentMuted: "#3a2e5e"
-    property color text:        "#e6e6ea"
-    property color textMuted:   "#8a8d96"
-    property color textDim:     "#555"
-    property color success:     "#7ee787"
-    property color danger:      "#f97583"
+// -- Theme colours (live-tunable by the palette engine) ------------
+    // Ndot-style palette: monochrome surface with a single saturated
+    // accent. The default theme is `monochrome-with-red-accent`,
+    // which is the canonical NothingLess look -- backgrounds stay
+    // pure monochrome and the red accent is reserved for state
+    // changes (DND on, recording, focus mode) instead of being the
+    // generic brand colour.
+    property color bg:          "#0a0a0a"
+    property color surface:     "#111111"
+    property color surfaceAlt:  "#181818"
+    property color border:      "#222222"
+    property color borderStrong: "#333333"
+    property color accent:      "#e74c3c"
+    property color accentMuted: "#5a1f17"
+    property color text:        "#f2f2f2"
+    property color textMuted:   "#a0a0a0"
+    property color textDim:     "#5a5a5a"
+    property color success:     "#f2f2f2"
+    property color danger:      "#e74c3c"
 
     Behavior on bg          { ColorAnimation { duration: durationSlower } }
     Behavior on surface     { ColorAnimation { duration: durationSlower } }
@@ -180,7 +186,14 @@ QtObject {
     // Selene "orbit" concept: the halo and orbit glow track the moon
     // phase metaphorically. The non-lunar presets are kept as utility
     // skins (Default, Sunset, Midnight, Monochrome).
-    property string themePreset: "default"
+    // Default preset on startup is `first-quarter` (Ndot's monochrome-
+    // with-red-accent, half-lit moon): the red accent is visible on
+    // the status indicators and moon halo from the very first paint,
+    // while the chrome stays pure monochrome. Switch to `full-moon`
+    // for the bright-red, fully-lit variant. The wallpaper-derived
+    // accent extraction only kicks in when the user switches back to
+    // `default`; everything else preserves the preset palette.
+    property string themePreset: "first-quarter"
 
     // -- Orbital / lunar visual knobs (consumed by Orbit/Moon) --------
     // The halo radius and opacity around the central moon are preset-
@@ -193,25 +206,110 @@ QtObject {
     property real orbitTraceAlpha: 0.18
 
     readonly property var _presets: ({
+        // ── Ndot (canonical monochrome-with-red-accent) ───────────
         "default": {
-            bg:           "#0e0f12",
-            surface:      "#16181c",
-            surfaceAlt:   "#1f2128",
-            border:       "#2a2c33",
-            borderStrong: "#3a3d46",
-            accent:       "#a78bfa",
-            accentMuted:  "#3a2e5e",
-            text:         "#e6e6ea",
-            textMuted:    "#8a8d96",
-            textDim:      "#555555",
-            success:      "#7ee787",
-            danger:       "#f97583",
-            haloAlpha:    0.18,
+            bg:           "#0a0a0a",
+            surface:      "#111111",
+            surfaceAlt:   "#181818",
+            border:       "#222222",
+            borderStrong: "#333333",
+            accent:       "#e74c3c",
+            accentMuted:  "#5a1f17",
+            text:         "#f2f2f2",
+            textMuted:    "#a0a0a0",
+            textDim:      "#5a5a5a",
+            success:      "#f2f2f2",
+            danger:       "#e74c3c",
+            haloAlpha:    0.20,
             moonScale:    1.0,
             orbitVel:     4.0,
+            traceAlpha:   0.18
+        },
+        // ── Lunar cycle (Ndot "moon phase" theme family) ───────────
+        "new-moon": {
+            // Pure shadow: monochrome background goes near-black, the
+            // moon glow is a faint silver rim around the central disc.
+            bg:           "#020205",
+            surface:      "#080808",
+            surfaceAlt:   "#0e0e0e",
+            border:       "#1a1a1a",
+            borderStrong: "#262626",
+            accent:       "#909090",
+            accentMuted:  "#3a3a3a",
+            text:         "#a8a8a8",
+            textMuted:    "#707070",
+            textDim:      "#3a3a3a",
+            success:      "#909090",
+            danger:       "#909090",
+            haloAlpha:    0.10,
+            moonScale:    1.0,
+            orbitVel:     2.0,
+            traceAlpha:   0.06
+        },
+        "waxing-crescent": {
+            // Thin warm light begins to break the monochrome.
+            bg:           "#080807",
+            surface:      "#101010",
+            surfaceAlt:   "#181816",
+            border:       "#222220",
+            borderStrong: "#333330",
+            accent:       "#c45a48",
+            accentMuted:  "#5a2017",
+            text:         "#dadada",
+            textMuted:    "#9a9a9a",
+            textDim:      "#4a4a4a",
+            success:      "#c4c4c4",
+            danger:       "#c45a48",
+            haloAlpha:    0.20,
+            moonScale:    1.05,
+            orbitVel:     3.5,
             traceAlpha:   0.14
         },
+        "first-quarter": {
+            // Half lit: the red accent deepens toward a saturated
+            // scarlet; the chrome stays monochrome so the accent
+            // reads as a clear state signal.
+            bg:           "#0d0d0d",
+            surface:      "#161616",
+            surfaceAlt:   "#1f1f1f",
+            border:       "#2a2a2a",
+            borderStrong: "#3d3d3d",
+            accent:       "#ff5a35",
+            accentMuted:  "#6a2010",
+            text:         "#fafafa",
+            textMuted:    "#a8a8a8",
+            textDim:      "#5a5a5a",
+            success:      "#fafafa",
+            danger:       "#ff5a35",
+            haloAlpha:    0.32,
+            moonScale:    1.15,
+            orbitVel:     5.0,
+            traceAlpha:   0.20
+        },
+        "full-moon": {
+            // Bright monochrome with the red accent at full saturation
+            // -- the most "alive" Ndot state.
+            bg:           "#101010",
+            surface:      "#1c1c1c",
+            surfaceAlt:   "#262626",
+            border:       "#333333",
+            borderStrong: "#484848",
+            accent:       "#ff6b4a",
+            accentMuted:  "#7a2515",
+            text:         "#ffffff",
+            textMuted:    "#b0b0b0",
+            textDim:      "#5a5a5a",
+            success:      "#ffffff",
+            danger:       "#ff6b4a",
+            haloAlpha:    0.45,
+            moonScale:    1.25,
+            orbitVel:     8.0,
+            traceAlpha:   0.30
+        },
+        // ── Utility presets (kept for power users) ─────────────────
         "sunset": {
+            // A warm wash for evening sessions; the red accent is
+            // desaturated to coral so it doesn't fight the background.
             bg:           "#1a0f15",
             surface:      "#2a1a1f",
             surfaceAlt:   "#3a2128",
@@ -230,6 +328,9 @@ QtObject {
             traceAlpha:   0.18
         },
         "midnight": {
+            // Cool wash: blue accent over near-black surface; the
+            // accent shifts away from the red so users can keep the
+            // monochrome-with-blue-accent identity Ndot supports.
             bg:           "#050715",
             surface:      "#0c1024",
             surfaceAlt:   "#141a35",
@@ -248,6 +349,8 @@ QtObject {
             traceAlpha:   0.20
         },
         "monochrome": {
+            // No accent: pure greyscale. Accent is set to a pale
+            // neutral so it never reads as "active".
             bg:           "#0a0a0a",
             surface:      "#141414",
             surfaceAlt:   "#1c1c1c",
@@ -264,84 +367,6 @@ QtObject {
             moonScale:    1.0,
             orbitVel:     5.0,
             traceAlpha:   0.10
-        },
-        // ── Lunar presets ───────────────────────────────────────────
-        "new-moon": {
-            // Almost no lit fraction; the shell is mostly shadow with
-            // a faint silver rim around the central moon.
-            bg:           "#020207",
-            surface:      "#0a0a14",
-            surfaceAlt:   "#12121e",
-            border:       "#1a1a28",
-            borderStrong: "#262638",
-            accent:       "#5b6b9e",
-            accentMuted:  "#1a1d2e",
-            text:         "#b8c2dd",
-            textMuted:    "#6a7390",
-            textDim:      "#3a4060",
-            success:      "#9bcba7",
-            danger:       "#c97070",
-            haloAlpha:    0.10,
-            moonScale:    1.0,
-            orbitVel:     2.0,
-            traceAlpha:   0.08
-        },
-        "waxing-crescent": {
-            bg:           "#0a0915",
-            surface:      "#14132a",
-            surfaceAlt:   "#1d1c3a",
-            border:       "#272548",
-            borderStrong: "#34345a",
-            accent:       "#9aa6e8",
-            accentMuted:  "#2a2f5e",
-            text:         "#dde2ff",
-            textMuted:    "#8e95c0",
-            textDim:      "#4a5080",
-            success:      "#a8d8c5",
-            danger:       "#d68fa6",
-            haloAlpha:    0.20,
-            moonScale:    1.05,
-            orbitVel:     3.5,
-            traceAlpha:   0.14
-        },
-        "first-quarter": {
-            bg:           "#0e0e1c",
-            surface:      "#1a1a30",
-            surfaceAlt:   "#232344",
-            border:       "#2e2e58",
-            borderStrong: "#3c3c70",
-            accent:       "#b6c0ff",
-            accentMuted:  "#303a78",
-            text:         "#e6ebff",
-            textMuted:    "#9ca4cc",
-            textDim:      "#525a8a",
-            success:      "#bce0d2",
-            danger:       "#e29fb4",
-            haloAlpha:    0.32,
-            moonScale:    1.15,
-            orbitVel:     5.0,
-            traceAlpha:   0.20
-        },
-        "full-moon": {
-            // Bright halo, bright accent, larger moon -- the most
-            // "alive" preset, evocative of a clear night with the
-            // moon high overhead.
-            bg:           "#0d0d18",
-            surface:      "#1c1c2e",
-            surfaceAlt:   "#262645",
-            border:       "#34345e",
-            borderStrong: "#454580",
-            accent:       "#e8e9ff",
-            accentMuted:  "#3a3f78",
-            text:         "#fafbff",
-            textMuted:    "#aab2d8",
-            textDim:      "#5e6896",
-            success:      "#d8efe2",
-            danger:       "#f0a8b8",
-            haloAlpha:    0.45,
-            moonScale:    1.25,
-            orbitVel:     8.0,
-            traceAlpha:   0.30
         }
     })
 
@@ -375,9 +400,9 @@ QtObject {
     // Caelestia defaults to an opaque surface; we apply a 55% surface
     // over a MultiEffect blur of the wallpaper so the chrome reads
     // like frosted glass.
-    readonly property real surfaceAlpha: 0.55
-    readonly property real layerAlpha: 0.92
-    readonly property real backdropBlur: 0.7
+    readonly property real surfaceAlpha: 0.92
+    readonly property real layerAlpha: 0.95
+    readonly property real backdropBlur: 0.5
     readonly property real backdropSaturation: 1.2
     readonly property real hairlineAlpha: 0.08
 

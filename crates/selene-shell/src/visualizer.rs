@@ -93,7 +93,7 @@ fn reader_main(
         let Ok(line) = line else { break; };
         frame_no += 1;
         // Cap at ~15fps: skip every other frame of cava's 30fps stream.
-        if frame_no % 2 == 0 {
+        if frame_no.is_multiple_of(2) {
             continue;
         }
         let bars = parse_frame(&line);
@@ -195,12 +195,11 @@ impl qobject::Visualizer {
     }
 
     pub fn stop(self: Pin<&mut Self>) {
-        if let Ok(mut slot) = child_slot().lock() {
-            if let Some(mut child) = slot.take() {
+        if let Ok(mut slot) = child_slot().lock()
+            && let Some(mut child) = slot.take() {
                 let _ = child.kill();
                 let _ = child.wait();
             }
-        }
         let mut this = self;
         this.as_mut().set_running(false);
         this.as_mut()

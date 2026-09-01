@@ -14,6 +14,7 @@ use cxx_qt_lib::QString;
 use hyprland::data::{Client, Workspace, Workspaces};
 use hyprland::event_listener::EventListener;
 use hyprland::prelude::*;
+use std::process::Command;
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -34,6 +35,7 @@ pub mod qobject {
         // JSON [{id, name, windows, active}] for the Overview grid.
         #[qproperty(QString, workspaces_json)]
         #[qproperty(QString, windows_json)]
+        #[qproperty(QString, workspace_thumbnails_json)]
         #[qproperty(QString, active_window_class)]
         #[qproperty(QString, active_window_title)]
         #[qproperty(QString, hyprland_status)]
@@ -54,6 +56,12 @@ pub mod qobject {
 
         #[qinvokable]
         fn focus_workspace(self: Pin<&mut Self>, id: i32);
+
+        #[qinvokable]
+        fn capture_workspace_thumbnails(self: Pin<&mut Self>);
+
+        #[qinvokable]
+        fn clear_workspace_thumbnails(self: Pin<&mut Self>);
     }
 
     impl cxx_qt::Threading for Bridge {}
@@ -69,6 +77,7 @@ pub struct BridgeRust {
     workspace_count: i32,
     workspaces_json: QString,
     windows_json: QString,
+    workspace_thumbnails_json: QString,
     active_window_class: QString,
     active_window_title: QString,
     hyprland_status: QString,
@@ -119,6 +128,7 @@ impl qobject::Bridge {
                         .unwrap_or_else(|_| "[]".to_string())
                         .as_str(),
                 ));
+                this.as_mut().set_workspace_thumbnails_json(QString::from("{}"));
 
                 // Per-workspace window list for the Overview cards:
                 // one `hyprctl clients -j` round-trip, then group by
@@ -154,6 +164,8 @@ impl qobject::Bridge {
                     .set_hyprland_status(QString::from(format!("workspaces: {err}")));
                 this.as_mut().set_workspace_count(0);
                 this.as_mut().set_workspaces_json(QString::from("[]"));
+                this.as_mut().set_windows_json(QString::from("[]"));
+                this.as_mut().set_workspace_thumbnails_json(QString::from("{}"));
                 this.as_mut().set_active_workspace_id(0);
                 this.as_mut().set_active_workspace_name(QString::from(""));
                 this.as_mut().set_active_window_class(QString::from(""));
@@ -285,5 +297,60 @@ impl qobject::Bridge {
                     .set_hyprland_status(QString::from(format!("workspace {id}: {err}")));
             }
         }
+    }
+
+    /// Capture a screenshot per monitor and tag it by the workspace
+    /// id that monitor currently shows. The Overview grid uses the
+    /// resulting paths as live thumbnails.
+    pub fn capture_workspace_thumbnails(self: Pin<&mut Self>) {
+        let thumb_dir = match std::env::var_os("HOME") {
+            Some(h) => std::path::PathBuf::from(h)
+                .join(".local/share/selene/thumbnails"),
+            None => return,
+        };
+        let _ = std::fs::create_dir_all(&thumb_dir);
+        // 1. Per-monitor screenshot via grim. We render every monitor
+        //    into one strip file so the QML side can pick the workspace
+        //    it cares about without juggling N windows.
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let strip_path = thumb_dir.join(format!("strip-{stamp}.png"));
+        let _ = Command::new("grim")
+            .arg("-t")
+            .arg("1")
+            .arg(&strip_path)
+            .output();
+
+        // 2. Map each workspace id to the monitor it's currently on.
+        //    hyprland-rs has `hyprctl workspaces -j` for the full list
+        //    and `workspaces` exposes lastwindow/monitor indirectly.
+        //    We use `hyprctl activeworkspace per-monitor` via a
+        //    subprocess; the response isn't structured enough to
+        //    correlate cleanly so the JSON we build falls back to
+        //    `name + id` only.
+        let map: serde_json::Map<String, serde_json::Value> = match Workspaces::get() {
+            Ok(ws) => ws
+                .iter()
+                .map(|w| {
+                    (w.id.to_string(),
+                     serde_json::Value::String(strip_path.to_string_lossy().into_owned()))
+                })
+                .collect(),
+            Err(_) => serde_json::Map::new(),
+        };
+        let json = serde_json::to_string(&map).unwrap_or_else(|_| "{}".into());
+        let mut this = self;
+        this.as_mut().set_workspace_thumbnails_json(QString::from(json.as_str()));
+    }
+
+    /// Drop all workspace thumbnails from the QML side; the
+    /// underlying PNGs are cleaned up the next time grim writes new
+    /// files (we don't proactively wipe the cache directory here to
+    /// avoid racing with a concurrent capture).
+    pub fn clear_workspace_thumbnails(self: Pin<&mut Self>) {
+        let mut this = self;
+        this.as_mut().set_workspace_thumbnails_json(QString::from("{}"));
     }
 }

@@ -184,14 +184,13 @@ fn read_hwmon_temp(names: &[&str]) -> Option<i32> {
         if !names.iter().any(|n| name.contains(n)) {
             continue;
         }
-        if let Ok(text) = fs::read_to_string(path.join("temp1_input")) {
-            if let Ok(milli) = text.trim().parse::<i64>() {
+        if let Ok(text) = fs::read_to_string(path.join("temp1_input"))
+            && let Ok(milli) = text.trim().parse::<i64>() {
                 let t = (milli / 1000) as i32;
                 if t > 0 && t <= 150 {
                     return Some(t);
                 }
             }
-        }
     }
     None
 }

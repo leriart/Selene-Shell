@@ -153,11 +153,16 @@ ApplicationWindow {
     Palette {
         id: paletteBackend
 
-        Component.onCompleted: {
+        // Defer the first refresh until after the theme preset has
+        // been applied; otherwise the wallpaper-derived colours win
+        // a race against the preset and the chrome paints in the
+        // wallpaper palette instead of the user's chosen preset.
+        Component.onCompleted: Qt.callLater(() => {
             paletteBackend.set_source(wallpaperBackend.current_path
                                      || paletteBackend.default_source());
-            paletteBackend.refresh();
-        }
+            if (Tokens.themePreset === "default")
+                paletteBackend.refresh();
+        });
     }
 
     Connections {
@@ -165,7 +170,8 @@ ApplicationWindow {
         function onCurrentPathChanged() {
             if (wallpaperBackend.current_path.length > 0) {
                 paletteBackend.set_source(wallpaperBackend.current_path);
-                paletteBackend.refresh();
+                if (Tokens.themePreset === "default")
+                    paletteBackend.refresh();
             }
         }
     }
